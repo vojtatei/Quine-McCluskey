@@ -838,4 +838,548 @@
                     };
                 }
                 
-                let bestSolution = this.findOptimalC
+                let bestSolution = this.findOptimalCoverage(primeImplicants, uncoveredMinterms, essentialPIs);
+                
+                let petrickTerms = [];
+                for (let minterm of uncoveredMinterms) {
+                    let termPIs = [];
+                    for (let i = 0; i < primeImplicants.length; i++) {
+                        if (primeImplicants[i].origins.includes(minterm) && !essentialPIs.has(i)) {
+                            termPIs.push(`P${i}`);
+                        }
+                    }
+                    if (termPIs.length > 0) {
+                        petrickTerms.push(`(${termPIs.join(' + ')})`);
+                    }
+                }
+                
+                let petrickExpression = petrickTerms.length > 0 ? 
+                    petrickTerms.join(' · ') : 
+                    "Žádné další mintermy k pokrytí";
+                
+                return {
+                    coverageTable, 
+                    solution: bestSolution,
+                    essentialPIs: Array.from(essentialPIs),
+                    petrickExpression: petrickExpression
+                };
+            }
+
+            findOptimalCoverage(primeImplicants, uncoveredMinterms, essentialPIs) {
+                if (uncoveredMinterms.length === 0) {
+                    return Array.from(essentialPIs);
+                }
+                
+                if (uncoveredMinterms.length <= 6) {
+                    let candidatePIs = [];
+                    for (let i = 0; i < primeImplicants.length; i++) {
+                        if (!essentialPIs.has(i)) {
+                            for (let minterm of uncoveredMinterms) {
+                                if (primeImplicants[i].origins.includes(minterm)) {
+                                    candidatePIs.push(i);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    
+                    let bestSolution = null;
+                    let bestCost = Infinity;
+                    
+                    for (let mask = 1; mask < (1 << candidatePIs.length); mask++) {
+                        let currentSolution = Array.from(essentialPIs);
+                        let covered = new Set();
+                        
+                        for (let piIndex of essentialPIs) {
+                            for (let minterm of primeImplicants[piIndex].origins) {
+                                covered.add(minterm);
+                            }
+                        }
+                        
+                        for (let i = 0; i < candidatePIs.length; i++) {
+                            if (mask & (1 << i)) {
+                                let piIndex = candidatePIs[i];
+                                currentSolution.push(piIndex);
+                                for (let minterm of primeImplicants[piIndex].origins) {
+                                    covered.add(minterm);
+                                }
+                            }
+                        }
+                        
+                        let allCovered = true;
+                        for (let minterm of uncoveredMinterms) {
+                            if (!covered.has(minterm)) {
+                                allCovered = false;
+                                break;
+                            }
+                        }
+                        
+                        if (allCovered) {
+                            let cost = 0;
+                            for (let piIndex of currentSolution) {
+                                let term = primeImplicants[piIndex].term;
+                                cost += term.length - (term.match(/-/g) || []).length;
+                            }
+                            
+                            if (cost < bestCost) {
+                                bestCost = cost;
+                                bestSolution = currentSolution;
+                            }
+                        }
+                    }
+                    
+                    if (bestSolution) {
+                        return bestSolution;
+                    }
+                }
+                
+                return this.findMinimalCoverage(primeImplicants, uncoveredMinterms, essentialPIs);
+            }
+
+            findMinimalCoverage(primeImplicants, uncoveredMinterms, essentialPIs) {
+                let solution = Array.from(essentialPIs);
+                let remaining = new Set(uncoveredMinterms);
+                
+                while (remaining.size > 0) {
+                    let bestPI = -1;
+                    let bestCoverage = 0;
+                    
+                    for (let i = 0; i < primeImplicants.length; i++) {
+                        if (solution.includes(i)) continue;
+                        
+                        let coverage = 0;
+                        for (let minterm of primeImplicants[i].origins) {
+                            if (remaining.has(minterm)) {
+                                coverage++;
+                            }
+                        }
+                        
+                        if (coverage > bestCoverage) {
+                            bestCoverage = coverage;
+                            bestPI = i;
+                        }
+                    }
+                    
+                    if (bestPI === -1) break;
+                    
+                    solution.push(bestPI);
+                    for (let minterm of primeImplicants[bestPI].origins) {
+                        remaining.delete(minterm);
+                    }
+                }
+                
+                return solution;
+            }
+
+            termToAlgebraic(term) {
+                let result = '';
+                for (let i = 0; i < term.length; i++) {
+                    if (term[i] !== '-') {
+                        if (result !== '') result += '';
+                        if (term[i] === '0') {
+                            result += this.varNames[i] + "'";
+                        } else {
+                            result += this.varNames[i];
+                        }
+                    }
+                }
+                return result || '1';
+            }
+        }
+
+        const qm = new QuineMcCluskey();
+
+        function loadQMPreset(minterms) {
+            document.getElementById('minterms').value = minterms;
+            runQuineMcCluskey();
+        }
+
+        function runQuineMcCluskey() {
+            try {
+                let input = document.getElementById('minterms').value;
+                let minterms = input.split(',').map(x => parseInt(x.trim())).filter(x => !isNaN(x));
+                
+                if (minterms.length === 0) {
+                    throw new Error('Zadejte platné mintermy');
+                }
+                
+                let maxMinterm = Math.max(...minterms);
+                if (maxMinterm >= 16) {
+                    throw new Error('Mintermy musí být v rozsahu 0-15 pro 4 proměnné');
+                }
+                
+                let result = qm.quineMcCluskey(minterms);
+                let petrickResult = qm.petrickFunction(result.primeImplicants, minterms);
+                
+                displayQMIterations(result.iterations);
+                displayQMKMap(qm.generateKMap(minterms), minterms);
+                displayQMPetrick(result.primeImplicants, petrickResult, minterms);
+                
+            } catch (error) {
+                document.getElementById('qm-iterations').innerHTML = `<div class="error">Chyba: ${error.message}</div>`;
+                document.getElementById('qm-kmap').innerHTML = '';
+                document.getElementById('qm-petrick').innerHTML = '';
+                document.getElementById('qm-coverage').innerHTML = '';
+                document.getElementById('qm-final-result').innerHTML = '';
+            }
+        }
+
+        function displayQMIterations(iterations) {
+            let html = '';
+            
+            for (let iter of iterations) {
+                html += `<h3>Iterace ${iter.iteration}</h3>`;
+                
+                if (iter.groups.length > 0) {
+                    html += '<table class="iteration-table">';
+                    html += '<tr><th>Počet jedniček</th><th>Binární</th><th>Mintermy</th></tr>';
+                    
+                    for (let group of iter.groups) {
+                        for (let term of group.terms) {
+                            html += `<tr>`;
+                            html += `<td>${group.ones}</td>`;
+                            html += `<td class="binary-display" style="font-size: 14px; padding: 5px;">${term.binary}</td>`;
+                            html += `<td>${term.origins.join(', ')}</td>`;
+                            html += `</tr>`;
+                        }
+                    }
+                    html += '</table>';
+                }
+                
+                if (iter.combinations.length > 0) {
+                    html += '<div class="step-explanation">Kombinace:</div>';
+                    html += '<table class="iteration-table">';
+                    html += '<tr><th>Term 1</th><th>Term 2</th><th>Kombinovaný</th><th>Mintermy</th></tr>';
+                    
+                    for (let combo of iter.combinations) {
+                        html += `<tr class="combined-term">`;
+                        html += `<td class="binary-display" style="font-size: 14px; padding: 5px;">${combo.term1}</td>`;
+                        html += `<td class="binary-display" style="font-size: 14px; padding: 5px;">${combo.term2}</td>`;
+                        html += `<td class="binary-display" style="font-size: 14px; padding: 5px;">${combo.result}</td>`;
+                        html += `<td>${combo.origins.join(', ')}</td>`;
+                        html += `</tr>`;
+                    }
+                    html += '</table>';
+                } else {
+                    html += '<div class="step-explanation">Žádné další kombinace možné - konec</div>';
+                }
+            }
+            
+            document.getElementById('qm-iterations').innerHTML = html;
+        }
+
+        function displayQMKMap(kmap, minterms) {
+            let html = '<div class="kmap-container">';
+            html += '<table class="kmap">';
+            
+            html += '<tr><th>WX\\YZ</th><th>00</th><th>01</th><th>11</th><th>10</th></tr>';
+            
+            let grayRows = ['00', '01', '11', '10'];
+            
+            for (let i = 0; i < 4; i++) {
+                html += `<tr><th>${grayRows[i]}</th>`;
+                for (let j = 0; j < 4; j++) {
+                    let value = kmap[i][j];
+                    let className = value === 1 ? 'one' : 'zero';
+                    html += `<td class="${className}">${value}</td>`;
+                }
+                html += '</tr>';
+            }
+            
+            html += '</table>';
+            html += '</div>';
+            
+            html += '<div class="step-explanation">Červené buňky = mintermy, šedé = nepoužité</div>';
+            
+            document.getElementById('qm-kmap').innerHTML = html;
+        }
+
+        function displayQMPetrick(primeImplicants, petrickResult, minterms) {
+            let html = '<h3>Prime implicanty:</h3>';
+            html += '<table class="iteration-table">';
+            html += '<tr><th>Index</th><th>Binární</th><th>Algebraicky</th><th>Pokrývá mintermy</th><th>Typ</th></tr>';
+            
+            for (let i = 0; i < primeImplicants.length; i++) {
+                let pi = primeImplicants[i];
+                let isEssential = petrickResult.essentialPIs.includes(i);
+                let isUsed = petrickResult.solution.includes(i);
+                let type = isEssential ? 'Esenciální' : (isUsed ? 'Použitý' : 'Nepoužitý');
+                let rowClass = isEssential ? 'style="background: #e8f5e8 !important;"' : 
+                              (isUsed ? 'style="background: #fff3cd !important;"' : '');
+                
+                html += `<tr ${rowClass}>`;
+                html += `<td>P${i}</td>`;
+                html += `<td class="binary-display" style="font-size: 14px; padding: 5px;">${pi.term}</td>`;
+                html += `<td>${qm.termToAlgebraic(pi.term)}</td>`;
+                html += `<td>${pi.origins.join(', ')}</td>`;
+                html += `<td><strong>${type}</strong></td>`;
+                html += `</tr>`;
+            }
+            html += '</table>';
+            
+            if (petrickResult.petrickExpression && petrickResult.petrickExpression !== "Všechny mintermy pokryté esenciálními PI") {
+                html += '<div class="step-explanation">';
+                html += '<h4>Petrickova funkce pro nepokryté mintermy:</h4>';
+                html += `<div style="font-family: monospace; font-size: 16px; padding: 10px; background: #f0f0f0; border-radius: 5px; color: #333;">`;
+                html += `P = ${petrickResult.petrickExpression}</div>`;
+                html += '</div>';
+            }
+            
+            document.getElementById('qm-petrick').innerHTML = html;
+            
+            html = '<h3>Tabulka pokrytí:</h3>';
+            html += '<table class="coverage-table">';
+            html += '<tr><th>Minterm</th>';
+            for (let i = 0; i < primeImplicants.length; i++) {
+                let isUsed = petrickResult.solution.includes(i);
+                let headerClass = isUsed ? 'style="background: #27ae60 !important;"' : '';
+                html += `<th ${headerClass}>P${i}</th>`;
+            }
+            html += '</tr>';
+            
+            for (let row of petrickResult.coverageTable) {
+                html += `<tr><td><strong>${row.minterm}</strong></td>`;
+                for (let i = 0; i < row.coverage.length; i++) {
+                    let className = row.coverage[i] === 1 ? 'covered' : '';
+                    html += `<td class="${className}">${row.coverage[i] === 1 ? '✓' : ''}</td>`;
+                }
+                html += '</tr>';
+            }
+            html += '</table>';
+            
+            document.getElementById('qm-coverage').innerHTML = html;
+            
+            let selectedPIs = petrickResult.solution.map(i => qm.termToAlgebraic(primeImplicants[i].term));
+            let finalExpression = selectedPIs.join(' + ');
+            
+            html = `<div class="final-result">`;
+            html += `<h3>🎯 Minimální výraz:</h3>`;
+            html += `<div style="font-size: 24px; margin: 15px 0;">F = ${finalExpression}</div>`;
+            html += `<div>Použité prime implicanty: ${petrickResult.solution.map(i => `P${i}`).join(', ')}</div>`;
+            html += `<div style="margin-top: 10px;">Esenciální PI: ${petrickResult.essentialPIs.map(i => `P${i}`).join(', ') || 'žádné'}</div>`;
+            html += `<div>Celkem literálů: ${selectedPIs.join('').replace(/[^A-Z']/g, '').length}</div>`;
+            html += `</div>`;
+            
+            document.getElementById('qm-final-result').innerHTML = html;
+        }
+
+        // IEEE 754 functionality
+        function loadIEEEExample(a, b) {
+            document.getElementById('ieee-num1').value = a;
+            document.getElementById('ieee-num2').value = b;
+            calculateIEEE754Addition();
+        }
+
+        function floatToIEEE754(num) {
+            const buffer = new ArrayBuffer(4);
+            const view = new DataView(buffer);
+            view.setFloat32(0, num, false);
+            const bits = view.getUint32(0, false);
+            
+            const binary = bits.toString(2).padStart(32, '0');
+            const sign = binary[0];
+            const exponent = binary.slice(1, 9);
+            const mantissa = binary.slice(9);
+            
+            return {
+                binary: binary,
+                sign: sign,
+                exponent: exponent,
+                mantissa: mantissa,
+                exponentValue: parseInt(exponent, 2),
+                biasedExponent: parseInt(exponent, 2) - 127,
+                mantissaValue: 1 + parseInt(mantissa, 2) / Math.pow(2, 23)
+            };
+        }
+
+        function ieee754ToBinary(sign, exponent, mantissa) {
+            return sign + exponent + mantissa;
+        }
+
+        function binaryToFloat(binary) {
+            const buffer = new ArrayBuffer(4);
+            const view = new DataView(buffer);
+            view.setUint32(0, parseInt(binary, 2), false);
+            return view.getFloat32(0, false);
+        }
+
+        function addMantissas(m1, m2, expDiff) {
+            const mantissa1 = Math.round((1 + parseInt(m1, 2) / Math.pow(2, 23)) * Math.pow(2, 23));
+            let mantissa2 = Math.round((1 + parseInt(m2, 2) / Math.pow(2, 23)) * Math.pow(2, 23));
+            
+            mantissa2 = Math.round(mantissa2 / Math.pow(2, expDiff));
+            
+            const sum = mantissa1 + mantissa2;
+            
+            return {
+                mantissa1: mantissa1,
+                mantissa2: mantissa2,
+                sum: sum,
+                mantissa1Bin: (mantissa1).toString(2),
+                mantissa2Bin: (mantissa2).toString(2),
+                sumBin: sum.toString(2)
+            };
+        }
+
+        function normalizeResult(sum, exponent) {
+            let sumBin = sum.toString(2);
+            let newExponent = exponent;
+            
+            if (sumBin.length > 24) {
+                const shift = sumBin.length - 24;
+                newExponent += shift;
+                sumBin = sumBin.slice(0, 24);
+            }
+            
+            let mantissa = sumBin.slice(1, 24).padEnd(23, '0');
+            
+            return {
+                mantissa: mantissa,
+                exponent: newExponent,
+                exponentBin: (newExponent + 127).toString(2).padStart(8, '0')
+            };
+        }
+
+        function calculateIEEE754Addition() {
+            try {
+                const num1 = parseFloat(document.getElementById('ieee-num1').value);
+                const num2 = parseFloat(document.getElementById('ieee-num2').value);
+                
+                if (isNaN(num1) || isNaN(num2)) {
+                    throw new Error('Zadejte platná čísla');
+                }
+                
+                const ieee1 = floatToIEEE754(num1);
+                const ieee2 = floatToIEEE754(num2);
+                
+                let html = '';
+                
+                html += `<div class="section">
+                    <h2>Krok 1: IEEE 754 reprezentace čísel</h2>
+                    <div class="info-box">
+                        <strong>Struktura IEEE 754 (32-bit):</strong><br>
+                        <span class="sign">S</span> = znaménko (1 bit), 
+                        <span class="exponent">EEEEEEEE</span> = exponent + 127 (8 bitů), 
+                        <span class="mantissa">MMMMMMMMMMMMMMMMMMMMMMM</span> = mantisa (23 bitů)
+                    </div>
+                    
+                    <table class="table">
+                        <tr><th>Číslo</th><th>Desetinně</th><th>IEEE 754 Binary</th><th>Rozklad</th></tr>
+                        <tr>
+                            <td><strong>A</strong></td>
+                            <td>${num1}</td>
+                            <td class="binary-display">
+                                <span class="sign">${ieee1.sign}</span>
+                                <span class="exponent">${ieee1.exponent}</span>
+                                <span class="mantissa">${ieee1.mantissa}</span>
+                            </td>
+                            <td>Exp: ${ieee1.exponentValue} (${ieee1.biasedExponent}+127)<br>
+                                Mantisa: 1.${ieee1.mantissa} ≈ ${ieee1.mantissaValue.toFixed(6)}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>B</strong></td>
+                            <td>${num2}</td>
+                            <td class="binary-display">
+                                <span class="sign">${ieee2.sign}</span>
+                                <span class="exponent">${ieee2.exponent}</span>
+                                <span class="mantissa">${ieee2.mantissa}</span>
+                            </td>
+                            <td>Exp: ${ieee2.exponentValue} (${ieee2.biasedExponent}+127)<br>
+                                Mantisa: 1.${ieee2.mantissa} ≈ ${ieee2.mantissaValue.toFixed(6)}</td>
+                        </tr>
+                    </table>
+                </div>`;
+                
+                const expDiff = Math.abs(ieee1.biasedExponent - ieee2.biasedExponent);
+                const largerExp = Math.max(ieee1.biasedExponent, ieee2.biasedExponent);
+                const isNum1Larger = ieee1.biasedExponent >= ieee2.biasedExponent;
+                
+                html += `<div class="section">
+                    <h2>Krok 2: Srovnání exponentů</h2>
+                    <div class="calculation-step">
+                        <strong>Exponenty:</strong><br>
+                        A: ${ieee1.biasedExponent} (${ieee1.exponent}₂)<br>
+                        B: ${ieee2.biasedExponent} (${ieee2.exponent}₂)<br><br>
+                        
+                        <strong>Rozdíl exponentů:</strong> |${ieee1.biasedExponent} - ${ieee2.biasedExponent}| = ${expDiff}<br>
+                        <strong>Větší exponent:</strong> ${largerExp}<br>
+                        <strong>Menší mantisu je třeba posunout o ${expDiff} pozic doprava</strong>
+                    </div>
+                </div>`;
+                
+                let m1 = ieee1.mantissa;
+                let m2 = ieee2.mantissa;
+                let sign1 = ieee1.sign;
+                let sign2 = ieee2.sign;
+                
+                if (!isNum1Larger) {
+                    [m1, m2] = [m2, m1];
+                    [sign1, sign2] = [sign2, sign1];
+                }
+                
+                const mantissaCalc = addMantissas(m1, m2, expDiff);
+                
+                html += `<div class="section">
+                    <h2>Krok 3: Posun mantisy a převod na celá čísla</h2>
+                    <div class="calculation-step">
+                        <strong>Normalizované mantisy (s implicitní 1):</strong><br>
+                        Větší číslo: 1.${m1} → ${mantissaCalc.mantissa1} (celé číslo)<br>
+                        Menší číslo: 1.${m2} → ${mantissaCalc.mantissa2} (posunuté o ${expDiff})<br><br>
+                        
+                        <strong>Binárně:</strong><br>
+                        ${mantissaCalc.mantissa1Bin}₂<br>
+                        ${mantissaCalc.mantissa2Bin}₂<br>
+                        ────────────────────<br>
+                        ${mantissaCalc.sumBin}₂ = ${mantissaCalc.sum}₁₀
+                    </div>
+                </div>`;
+                
+                const normalized = normalizeResult(mantissaCalc.sum, largerExp);
+                
+                html += `<div class="section">
+                    <h2>Krok 4: Normalizace výsledku</h2>
+                    <div class="calculation-step">
+                        <strong>Suma mantis:</strong> ${mantissaCalc.sum} = ${mantissaCalc.sumBin}₂<br><br>
+                        
+                        <strong>Normalizace:</strong><br>
+                        Exponent: ${normalized.exponent} → ${normalized.exponent + 127} → ${normalized.exponentBin}₂<br>
+                        Mantisa: ${normalized.mantissa} (bez implicitní 1)
+                    </div>
+                </div>`;
+                
+                const resultSign = (num1 + num2) >= 0 ? '0' : '1';
+                const resultBinary = ieee754ToBinary(resultSign, normalized.exponentBin, normalized.mantissa);
+                const actualResult = num1 + num2;
+                const calculatedResult = binaryToFloat(resultBinary);
+                
+                html += `<div class="section">
+                    <h2>Krok 5: Finální výsledek</h2>
+                    <div class="binary-display">
+                        <span class="sign">${resultSign}</span>
+                        <span class="exponent">${normalized.exponentBin}</span>
+                        <span class="mantissa">${normalized.mantissa}</span>
+                    </div>
+                    
+                    <div class="final-result">
+                        <h3>🎯 Výsledek sčítání:</h3>
+                        <div style="font-size: 24px; margin: 15px 0;">${num1} + ${num2} = ${actualResult}</div>
+                        <div>IEEE 754 výpočet: ${calculatedResult.toFixed(6)}</div>
+                        <div>Přesnost: ${Math.abs(actualResult - calculatedResult) < 0.000001 ? '✅ Přesný' : '⚠️ Zaokrouhlení'}</div>
+                    </div>
+                </div>`;
+                
+                document.getElementById('ieee-results').innerHTML = html;
+                
+            } catch (error) {
+                document.getElementById('ieee-results').innerHTML = `<div class="error">Chyba: ${error.message}</div>`;
+            }
+        }
+
+        // Initialize on load
+        window.onload = function() {
+            runQuineMcCluskey();
+            calculateIEEE754Addition();
+        };
+    </script>
+</body>
+</html>
