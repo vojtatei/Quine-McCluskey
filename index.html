@@ -475,6 +475,11 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a href="#" class="nav-link" onclick="showSection('binary-arithmetic')">
+                        🧮 Binární aritmetika
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="#" class="nav-link" onclick="showSection('coming-soon')">
                         ⭐ Další témata
                     </a>
@@ -505,6 +510,11 @@
                         <div class="topic-card" onclick="showSection('ieee754')">
                             <h3>🔢 IEEE 754 Floating Point</h3>
                             <p>Pochopte, jak počítače ukládají a počítají s desetinnými čísly. Sledujte proces sčítání floating point čísel bit po bitu.</p>
+                        </div>
+                        
+                        <div class="topic-card" onclick="showSection('binary-arithmetic')">
+                            <h3>🧮 Binární aritmetika</h3>
+                            <p>Naučte se sčítat, odčítat, násobit a dělit v binární soustavě. Pochopte, jak CPU provádí základní aritmetické operace.</p>
                         </div>
                         
                         <div class="topic-card" onclick="showSection('coming-soon')">
@@ -551,6 +561,40 @@
                     <div id="qm-coverage"></div>
                     <div id="qm-final-result"></div>
                 </div>
+            </section>
+
+            <!-- Binární aritmetika sekce -->
+            <section id="binary-arithmetic" class="topic-section">
+                <h1>🧮 Binární aritmetika</h1>
+                
+                <div class="input-section">
+                    <div class="controls">
+                        <label for="bin-num1">Číslo A (binárně nebo desetinně):</label>
+                        <input type="text" id="bin-num1" value="01011010" placeholder="např. 01011010 nebo 90">
+                        
+                        <label for="bin-operation">Operace:</label>
+                        <select id="bin-operation" style="padding: 10px 15px; border: none; border-radius: 8px; background: rgba(255, 255, 255, 0.9); color: #333; font-size: 16px;">
+                            <option value="add">Sčítání (+)</option>
+                            <option value="subtract">Odčítání (-)</option>
+                            <option value="multiply">Násobení (×)</option>
+                            <option value="divide">Dělení (÷)</option>
+                        </select>
+                        
+                        <label for="bin-num2">Číslo B (binárně nebo desetinně):</label>
+                        <input type="text" id="bin-num2" value="00101100" placeholder="např. 00101100 nebo 44">
+                        
+                        <button onclick="calculateBinaryArithmetic()">🚀 Spočítat</button>
+                    </div>
+                    
+                    <div class="preset-buttons">
+                        <button class="preset-btn" onclick="loadBinaryPreset('01011010', '00101100', 'subtract')">Odčítání: 90 - 44</button>
+                        <button class="preset-btn" onclick="loadBinaryPreset('00110111', '00000101', 'divide')">Dělení: 55 ÷ 5</button>
+                        <button class="preset-btn" onclick="loadBinaryPreset('00000100', '00000111', 'multiply')">Násobení: 4 × 7</button>
+                        <button class="preset-btn" onclick="loadBinaryPreset('01000100', '01011010', 'add')">Sčítání: 68 + 90</button>
+                    </div>
+                </div>
+                
+                <div id="binary-results"></div>
             </section>
 
             <!-- IEEE 754 sekce -->
@@ -1375,10 +1419,448 @@
             }
         }
 
+        // Binary arithmetic functionality
+        function loadBinaryPreset(num1, num2, operation) {
+            document.getElementById('bin-num1').value = num1;
+            document.getElementById('bin-num2').value = num2;
+            document.getElementById('bin-operation').value = operation;
+            calculateBinaryArithmetic();
+        }
+
+        function parseBinaryInput(input) {
+            // Pokud obsahuje jen 0 a 1, je to binární
+            if (/^[01]+$/.test(input)) {
+                return {
+                    binary: input.padStart(8, '0'),
+                    decimal: parseInt(input, 2)
+                };
+            } else {
+                // Jinak je to desetinné číslo
+                let decimal = parseInt(input);
+                return {
+                    binary: decimal.toString(2).padStart(8, '0'),
+                    decimal: decimal
+                };
+            }
+        }
+
+        function binaryAddition(a, b) {
+            let result = '';
+            let carry = 0;
+            let steps = [];
+            
+            // Ujisti se, že mají stejnou délku
+            let maxLen = Math.max(a.length, b.length);
+            a = a.padStart(maxLen, '0');
+            b = b.padStart(maxLen, '0');
+            
+            for (let i = maxLen - 1; i >= 0; i--) {
+                let bitA = parseInt(a[i]);
+                let bitB = parseInt(b[i]);
+                let sum = bitA + bitB + carry;
+                
+                steps.push({
+                    position: maxLen - 1 - i,
+                    bitA: bitA,
+                    bitB: bitB,
+                    carry: carry,
+                    sum: sum,
+                    result: sum % 2,
+                    newCarry: Math.floor(sum / 2)
+                });
+                
+                result = (sum % 2) + result;
+                carry = Math.floor(sum / 2);
+            }
+            
+            if (carry) {
+                result = carry + result;
+            }
+            
+            return { result, steps };
+        }
+
+        function binarySubtraction(a, b) {
+            let steps = [];
+            let result = '';
+            let borrow = 0;
+            
+            let maxLen = Math.max(a.length, b.length);
+            a = a.padStart(maxLen, '0');
+            b = b.padStart(maxLen, '0');
+            
+            // Kontrola, zda a >= b
+            if (parseInt(a, 2) < parseInt(b, 2)) {
+                return {
+                    result: 'ZÁPORNÝ VÝSLEDEK',
+                    steps: [],
+                    note: 'Pro zjednodušení ukazujeme jen kladné výsledky. V CPU by se použil doplňkový kód.'
+                };
+            }
+            
+            for (let i = maxLen - 1; i >= 0; i--) {
+                let bitA = parseInt(a[i]) - borrow;
+                let bitB = parseInt(b[i]);
+                
+                if (bitA < bitB) {
+                    bitA += 2;
+                    borrow = 1;
+                } else {
+                    borrow = 0;
+                }
+                
+                let diff = bitA - bitB;
+                
+                steps.push({
+                    position: maxLen - 1 - i,
+                    originalA: parseInt(a[i]),
+                    bitA: bitA,
+                    bitB: bitB,
+                    borrow: borrow,
+                    result: diff
+                });
+                
+                result = diff + result;
+            }
+            
+            // Odstraň vedoucí nuly
+            result = result.replace(/^0+/, '') || '0';
+            
+            return { result, steps };
+        }
+
+        function binaryMultiplication(a, b) {
+            let steps = [];
+            let partialProducts = [];
+            
+            let decimalA = parseInt(a, 2);
+            let decimalB = parseInt(b, 2);
+            
+            for (let i = b.length - 1; i >= 0; i--) {
+                if (b[i] === '1') {
+                    let shift = b.length - 1 - i;
+                    let product = a + '0'.repeat(shift);
+                    partialProducts.push({
+                        multiplier: b[i],
+                        shift: shift,
+                        product: product,
+                        position: i
+                    });
+                }
+            }
+            
+            // Sečti všechny částečné součiny
+            let finalResult = '0';
+            for (let product of partialProducts) {
+                let addition = binaryAddition(finalResult, product.product);
+                finalResult = addition.result;
+            }
+            
+            return {
+                result: finalResult,
+                partialProducts: partialProducts,
+                decimalResult: decimalA * decimalB
+            };
+        }
+
+        function binaryDivision(dividend, divisor) {
+            let quotient = '';
+            let remainder = '';
+            let steps = [];
+            
+            let decimalDividend = parseInt(dividend, 2);
+            let decimalDivisor = parseInt(divisor, 2);
+            
+            if (decimalDivisor === 0) {
+                return { error: 'Dělení nulou!' };
+            }
+            
+            let currentDividend = '';
+            
+            for (let i = 0; i < dividend.length; i++) {
+                currentDividend += dividend[i];
+                let currentDecimal = parseInt(currentDividend, 2) || 0;
+                
+                if (currentDecimal >= decimalDivisor) {
+                    quotient += '1';
+                    let subtraction = (currentDecimal - decimalDivisor).toString(2);
+                    remainder = subtraction;
+                    currentDividend = remainder;
+                    
+                    steps.push({
+                        step: i + 1,
+                        currentDividend: currentDividend,
+                        comparison: `${currentDecimal} >= ${decimalDivisor}`,
+                        quotientBit: '1',
+                        newRemainder: remainder
+                    });
+                } else {
+                    quotient += '0';
+                    steps.push({
+                        step: i + 1,
+                        currentDividend: currentDividend,
+                        comparison: `${currentDecimal} < ${decimalDivisor}`,
+                        quotientBit: '0',
+                        newRemainder: currentDividend
+                    });
+                }
+            }
+            
+            return {
+                quotient: quotient.replace(/^0+/, '') || '0',
+                remainder: remainder || '0',
+                steps: steps,
+                decimalQuotient: Math.floor(decimalDividend / decimalDivisor),
+                decimalRemainder: decimalDividend % decimalDivisor
+            };
+        }
+
+        function calculateBinaryArithmetic() {
+            try {
+                let input1 = document.getElementById('bin-num1').value.trim();
+                let input2 = document.getElementById('bin-num2').value.trim();
+                let operation = document.getElementById('bin-operation').value;
+                
+                if (!input1 || !input2) {
+                    throw new Error('Zadejte obě čísla');
+                }
+                
+                let num1 = parseBinaryInput(input1);
+                let num2 = parseBinaryInput(input2);
+                
+                let html = '';
+                
+                // Zobrazení vstupních čísel
+                html += `<div class="section">
+                    <h2>Vstupní čísla</h2>
+                    <table class="table">
+                        <tr><th>Číslo</th><th>Binárně</th><th>Desetinně</th></tr>
+                        <tr>
+                            <td><strong>A</strong></td>
+                            <td class="binary-display" style="font-size: 16px;">${num1.binary}</td>
+                            <td>${num1.decimal}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>B</strong></td>
+                            <td class="binary-display" style="font-size: 16px;">${num2.binary}</td>
+                            <td>${num2.decimal}</td>
+                        </tr>
+                    </table>
+                </div>`;
+                
+                // Provedení operace
+                let result;
+                switch (operation) {
+                    case 'add':
+                        result = binaryAddition(num1.binary, num2.binary);
+                        html += displayAdditionSteps(num1, num2, result);
+                        break;
+                    case 'subtract':
+                        result = binarySubtraction(num1.binary, num2.binary);
+                        html += displaySubtractionSteps(num1, num2, result);
+                        break;
+                    case 'multiply':
+                        result = binaryMultiplication(num1.binary, num2.binary);
+                        html += displayMultiplicationSteps(num1, num2, result);
+                        break;
+                    case 'divide':
+                        result = binaryDivision(num1.binary, num2.binary);
+                        html += displayDivisionSteps(num1, num2, result);
+                        break;
+                }
+                
+                document.getElementById('binary-results').innerHTML = html;
+                
+            } catch (error) {
+                document.getElementById('binary-results').innerHTML = `<div class="error">Chyba: ${error.message}</div>`;
+            }
+        }
+
+        function displayAdditionSteps(num1, num2, result) {
+            let html = `<div class="section">
+                <h2>🧮 Sčítání krok za krokem</h2>
+                <div class="info-box">
+                    <strong>Pravidla binárního sčítání:</strong><br>
+                    0 + 0 = 0, &nbsp; 0 + 1 = 1, &nbsp; 1 + 0 = 1, &nbsp; 1 + 1 = 10 (přenos)
+                </div>
+                
+                <div class="binary-display">
+                    <div style="text-align: right; font-family: monospace;">
+                        &nbsp;&nbsp;${num1.binary}<br>
+                        + ${num2.binary}<br>
+                        ─────────<br>
+                        ${result.result.padStart(Math.max(num1.binary.length, num2.binary.length) + 1, ' ')}
+                    </div>
+                </div>
+                
+                <h3>Postupné kroky:</h3>
+                <table class="table">
+                    <tr><th>Pozice</th><th>Bit A</th><th>Bit B</th><th>Přenos</th><th>Součet</th><th>Výsledek</th><th>Nový přenos</th></tr>`;
+            
+            for (let step of result.steps) {
+                html += `<tr>
+                    <td>${step.position}</td>
+                    <td>${step.bitA}</td>
+                    <td>${step.bitB}</td>
+                    <td>${step.carry}</td>
+                    <td>${step.sum}</td>
+                    <td><strong>${step.result}</strong></td>
+                    <td>${step.newCarry}</td>
+                </tr>`;
+            }
+            
+            html += `</table>
+                <div class="final-result">
+                    <h3>🎯 Výsledek sčítání:</h3>
+                    <div style="font-size: 24px; margin: 15px 0;">${num1.decimal} + ${num2.decimal} = ${parseInt(result.result, 2)}</div>
+                    <div>Binárně: ${result.result}</div>
+                </div>
+            </div>`;
+            
+            return html;
+        }
+
+        function displaySubtractionSteps(num1, num2, result) {
+            if (result.note) {
+                return `<div class="section">
+                    <h2>⚠️ Odčítání</h2>
+                    <div class="error">${result.note}</div>
+                </div>`;
+            }
+            
+            let html = `<div class="section">
+                <h2>➖ Odčítání krok za krokem</h2>
+                <div class="info-box">
+                    <strong>Pravidla binárního odčítání:</strong><br>
+                    0 - 0 = 0, &nbsp; 1 - 0 = 1, &nbsp; 1 - 1 = 0, &nbsp; 0 - 1 = 1 (s výpůjčkou)
+                </div>
+                
+                <div class="binary-display">
+                    <div style="text-align: right; font-family: monospace;">
+                        &nbsp;&nbsp;${num1.binary}<br>
+                        - ${num2.binary}<br>
+                        ─────────<br>
+                        &nbsp;&nbsp;${result.result.padStart(num1.binary.length, '0')}
+                    </div>
+                </div>
+                
+                <h3>Postupné kroky:</h3>
+                <table class="table">
+                    <tr><th>Pozice</th><th>Původní A</th><th>A po výpůjčce</th><th>B</th><th>Výpůjčka</th><th>Rozdíl</th></tr>`;
+            
+            for (let step of result.steps) {
+                html += `<tr>
+                    <td>${step.position}</td>
+                    <td>${step.originalA}</td>
+                    <td>${step.bitA}</td>
+                    <td>${step.bitB}</td>
+                    <td>${step.borrow}</td>
+                    <td><strong>${step.result}</strong></td>
+                </tr>`;
+            }
+            
+            html += `</table>
+                <div class="final-result">
+                    <h3>🎯 Výsledek odčítání:</h3>
+                    <div style="font-size: 24px; margin: 15px 0;">${num1.decimal} - ${num2.decimal} = ${parseInt(result.result, 2)}</div>
+                    <div>Binárně: ${result.result}</div>
+                </div>
+            </div>`;
+            
+            return html;
+        }
+
+        function displayMultiplicationSteps(num1, num2, result) {
+            let html = `<div class="section">
+                <h2>✖️ Násobení krok za krokem</h2>
+                <div class="info-box">
+                    <strong>Binární násobení:</strong><br>
+                    Stejně jako v desítkové soustavě - násobíme každým bitem a posouváme pozice.
+                </div>
+                
+                <div class="binary-display">
+                    <div style="text-align: right; font-family: monospace;">
+                        &nbsp;&nbsp;&nbsp;&nbsp;${num1.binary}<br>
+                        ×&nbsp;&nbsp;&nbsp;&nbsp;${num2.binary}<br>
+                        ──────────<br>`;
+            
+            for (let product of result.partialProducts) {
+                html += `&nbsp;&nbsp;${product.product}<br>`;
+            }
+            
+            html += `──────────<br>`;
+            html += `&nbsp;&nbsp;${result.result}<br>`;
+            html += `</div></div>`;
+            
+            html += `<h3>Částečné součiny:</h3>
+                <table class="table">
+                    <tr><th>Bit násobitele</th><th>Posun</th><th>Částečný součin</th></tr>`;
+            
+            for (let product of result.partialProducts) {
+                html += `<tr>
+                    <td>${product.multiplier} (pozice ${product.position})</td>
+                    <td>${product.shift} pozic vlevo</td>
+                    <td class="binary-display" style="font-size: 14px;">${product.product}</td>
+                </tr>`;
+            }
+            
+            html += `</table>
+                <div class="final-result">
+                    <h3>🎯 Výsledek násobení:</h3>
+                    <div style="font-size: 24px; margin: 15px 0;">${num1.decimal} × ${num2.decimal} = ${result.decimalResult}</div>
+                    <div>Binárně: ${result.result}</div>
+                </div>
+            </div>`;
+            
+            return html;
+        }
+
+        function displayDivisionSteps(num1, num2, result) {
+            if (result.error) {
+                return `<div class="section">
+                    <h2>⚠️ Dělení</h2>
+                    <div class="error">${result.error}</div>
+                </div>`;
+            }
+            
+            let html = `<div class="section">
+                <h2>➗ Dělení krok za krokem</h2>
+                <div class="info-box">
+                    <strong>Binární dělení:</strong><br>
+                    Podobné dlouhému dělení - porovnáváme a odčítáme postupně.
+                </div>
+                
+                <h3>Postupné kroky:</h3>
+                <table class="table">
+                    <tr><th>Krok</th><th>Aktuální dělenec</th><th>Porovnání</th><th>Bit podílu</th><th>Zbytek</th></tr>`;
+            
+            for (let step of result.steps) {
+                html += `<tr>
+                    <td>${step.step}</td>
+                    <td class="binary-display" style="font-size: 14px;">${step.currentDividend}</td>
+                    <td>${step.comparison}</td>
+                    <td><strong>${step.quotientBit}</strong></td>
+                    <td>${step.newRemainder}</td>
+                </tr>`;
+            }
+            
+            html += `</table>
+                <div class="final-result">
+                    <h3>🎯 Výsledek dělení:</h3>
+                    <div style="font-size: 24px; margin: 15px 0;">${num1.decimal} ÷ ${num2.decimal} = ${result.decimalQuotient} se zbytkem ${result.decimalRemainder}</div>
+                    <div>Podíl binárně: ${result.quotient}</div>
+                    <div>Zbytek binárně: ${result.remainder}</div>
+                </div>
+            </div>`;
+            
+            return html;
+        }
+
         // Initialize on load
         window.onload = function() {
             runQuineMcCluskey();
             calculateIEEE754Addition();
+            calculateBinaryArithmetic();
         };
     </script>
 </body>
