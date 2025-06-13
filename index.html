@@ -1667,6 +1667,10 @@
                         result = binaryDivision(num1.binary, num2.binary);
                         html += displayDivisionSteps(num1, num2, result);
                         break;
+                    case 'non-restoring':
+                        result = nonRestoringDivision(num1.binary, num2.binary);
+                        html += displayNonRestoringSteps(num1, num2, result);
+                        break;
                 }
                 
                 document.getElementById('binary-results').innerHTML = html;
@@ -1855,6 +1859,175 @@
             
             return html;
         }
+        function nonRestoringDivision(dividend, divisor) {
+                let decimalDividend = parseInt(dividend, 2);
+                let decimalDivisor = parseInt(divisor, 2);
+                
+                if (decimalDivisor === 0) {
+                    return { error: 'Dělení nulou!' };
+                }
+                
+                let n = dividend.length;
+                let A = 0; // Akumulátor
+                let Q = decimalDividend; // Kvocient
+                let M = decimalDivisor; // Dělitel
+                let quotient = '';
+                let steps = [];
+                
+                for (let i = 0; i < n; i++) {
+                    let stepData = {
+                        step: i + 1,
+                        initialA: A,
+                        initialQ: Q.toString(2).padStart(n, '0'),
+                        operation: '',
+                        newA: 0,
+                        newQ: '',
+                        quotientBit: '',
+                        description: ''
+                    };
+                    
+                    // 1. Posun AQ doleva (kromě prvního kroku)
+                    if (i > 0) {
+                        let qMSB = Math.floor(Q / Math.pow(2, n-1));
+                        A = (A * 2) + qMSB;
+                        Q = (Q * 2) % Math.pow(2, n);
+                    }
+                    
+                    // 2. Operace podle znaménka A
+                    let newA;
+                    if (A >= 0) {
+                        newA = A - M;
+                        stepData.operation = `${A} - ${M} = ${newA}`;
+                        stepData.description = 'Posun + odečtení dělitele';
+                    } else {
+                        newA = A + M;
+                        stepData.operation = `${A} + ${M} = ${newA}`;
+                        stepData.description = 'Posun + přičtení dělitele';
+                    }
+                    
+                    A = newA;
+                    
+                    // 3. Určení bitu kvocientu
+                    if (A >= 0) {
+                        quotient += '1';
+                        stepData.quotientBit = '1';
+                        Q = Q | 1;
+                        stepData.description += ' → bit 1 (A ≥ 0)';
+                    } else {
+                        quotient += '0';
+                        stepData.quotientBit = '0';
+                        Q = Q & ~1;
+                        stepData.description += ' → bit 0 (A < 0)';
+                    }
+                    
+                    stepData.newA = A;
+                    stepData.newQ = Q.toString(2).padStart(n, '0');
+                    
+                    steps.push(stepData);
+                }
+                
+                // Korekce zbytku pokud je záporný
+                if (A < 0) {
+                    A = A + M;
+                    steps.push({
+                        step: 'Korekce',
+                        description: 'Přičtení dělitele k zápornému zbytku',
+                        operation: `${A - M} + ${M} = ${A}`,
+                        finalCorrection: true
+                    });
+                }
+                
+                return {
+                    quotient: quotient.replace(/^0+/, '') || '0',
+                    remainder: Math.abs(A).toString(2),
+                    steps: steps,
+                    decimalQuotient: Math.floor(decimalDividend / decimalDivisor),
+                    decimalRemainder: decimalDividend % decimalDivisor,
+                    algorithm: 'non-restoring'
+                };
+            }
+            
+            function displayNonRestoringSteps(num1, num2, result) {
+                if (result.error) {
+                    return `<div class="section">
+                        <h2>⚠️ Dělení bez restaurace</h2>
+                        <div class="error">${result.error}</div>
+                    </div>`;
+                }
+                
+                let html = `<div class="section">
+                    <h2>🔄 Dělení bez restaurace zbytku</h2>
+                    <div class="info-box">
+                        <strong>Algoritmus bez restaurace:</strong><br>
+                        a) Odečti dělitel od akumulátoru<br>
+                        b) Na základě MSB urči bit kvocientu (MSB=0 → bit 1, MSB=1 → bit 0)<br>
+                        c) Posuň AQ doleva (×2), MSB se zahodí<br>
+                        d) Pokud je výsledek záporný, pokračuj (bez restaurace)<br>
+                        e) Opakuj dokud není dosažen maximální posun<br>
+                        f) Na konci může být nutná korekce zbytku
+                    </div>
+                    
+                    <div class="calculation-step">
+                        <strong>Inicializace:</strong><br>
+                        A (akumulátor): ${'0'.repeat(num1.binary.length)}<br>
+                        Q (kvocient): ${num1.binary}<br>
+                        M (dělitel): ${num2.binary}
+                    </div>
+                    
+                    <h3>Postupné kroky:</h3>
+                    <table class="table">
+                        <tr>
+                            <th>Krok</th>
+                            <th>Operace</th>
+                            <th>Nový A</th>
+                            <th>Nový Q</th>
+                            <th>Q bit</th>
+                            <th>Popis</th>
+                        </tr>`;
+                
+                for (let step of result.steps) {
+                    if (step.finalCorrection) {
+                        html += `<tr style="background: #fff3cd;">
+                            <td><strong>Korekce</strong></td>
+                            <td>${step.operation}</td>
+                            <td colspan="3">Finální korekce zbytku</td>
+                            <td>${step.description}</td>
+                        </tr>`;
+                    } else {
+                        html += `<tr>
+                            <td>${step.step}</td>
+                            <td>${step.operation}</td>
+                            <td class="binary-display" style="font-size: 12px; padding: 4px;">${step.newA}</td>
+                            <td class="binary-display" style="font-size: 12px; padding: 4px;">${step.newQ}</td>
+                            <td><strong>${step.quotientBit}</strong></td>
+                            <td style="font-size: 12px;">${step.description}</td>
+                        </tr>`;
+                    }
+                }
+                
+                html += `</table>
+                    
+                    <div class="calculation-step">
+                        <strong>Výhody algoritmu bez restaurace:</strong><br>
+                        • Rychlejší než klasické dělení (méně operací)<br>
+                        • Nemusíme vracet (restaurovat) záporné mezivýsledky<br>
+                        • Vhodný pro hardware implementaci<br>
+                        • Používá se v moderních procesorech
+                    </div>
+                    
+                    <div class="final-result">
+                        <h3>🎯 Výsledek dělení bez restaurace:</h3>
+                        <div style="font-size: 24px; margin: 15px 0;">${num1.decimal} ÷ ${num2.decimal} = ${result.decimalQuotient} se zbytkem ${result.decimalRemainder}</div>
+                        <div>Podíl binárně: ${result.quotient}</div>
+                        <div>Zbytek binárně: ${result.remainder}</div>
+                        <div style="margin-top: 10px; font-size: 14px;">
+                            <strong>Efektivita:</strong> Algoritmus bez restaurace je rychlejší než klasické dělení
+                        </div>
+                    </div>
+                </div>`;
+                
+                return html;
+            }
 
         // Initialize on load
         window.onload = function() {
