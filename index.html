@@ -480,6 +480,11 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a href="#" class="nav-link" onclick="showSection('ieee754-converter')">
+                        🔄 IEEE 754 Převodník
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="#" class="nav-link" onclick="showSection('coming-soon')">
                         ⭐ Další témata
                     </a>
@@ -508,8 +513,13 @@
                         </div>
                         
                         <div class="topic-card" onclick="showSection('ieee754')">
-                            <h3>🔢 IEEE 754 Floating Point</h3>
-                            <p>Pochopte, jak počítače ukládají a počítají s desetinnými čísly. Sledujte proces sčítání floating point čísel bit po bitu.</p>
+                            <h3>🔢 IEEE 754 Sčítání</h3>
+                            <p>Pochopte, jak počítače sčítají desetinná čísla. Sledujte proces sčítání floating point čísel bit po bitu.</p>
+                        </div>
+                        
+                        <div class="topic-card" onclick="showSection('ieee754-converter')">
+                            <h3>🔄 IEEE 754 Převodník</h3>
+                            <p>Převádějte mezi desetinnými čísly a IEEE 754 reprezentací s detailním postupem a vysvětlením každého kroku.</p>
                         </div>
                         
                         <div class="topic-card" onclick="showSection('binary-arithmetic')">
@@ -623,6 +633,36 @@
                 </div>
                 
                 <div id="ieee-results"></div>
+            </section>
+
+            <section id="ieee754-converter" class="topic-section">
+                <h1>🔄 IEEE 754 Převodník</h1>
+                
+                <div class="input-section">
+                    <div class="controls">
+                        <label for="converter-input">Vstup:</label>
+                        <input type="text" id="converter-input" value="3.75" placeholder="např. 3.75 nebo 01000000011100000000000000000000">
+                        
+                        <label for="converter-type">Typ:</label>
+                        <select id="converter-type" style="padding: 10px 15px; border: none; border-radius: 8px; background: rgba(255, 255, 255, 0.9); color: #333; font-size: 16px;">
+                            <option value="decimal">Desetinné → IEEE 754</option>
+                            <option value="binary">IEEE 754 → Desetinné</option>
+                        </select>
+                        
+                        <button onclick="convertIEEE754()">🔄 Převést</button>
+                    </div>
+                    
+                    <div class="preset-buttons">
+                        <button class="preset-btn" onclick="loadConverterExample('3.75', 'decimal')">3.75 → IEEE</button>
+                        <button class="preset-btn" onclick="loadConverterExample('-2.5', 'decimal')">-2.5 → IEEE</button>
+                        <button class="preset-btn" onclick="loadConverterExample('01000000011100000000000000000000', 'binary')">IEEE → Decimal</button>
+                        <button class="preset-btn" onclick="loadConverterExample('0.125', 'decimal')">0.125 → IEEE</button>
+                        <button class="preset-btn" onclick="loadConverterExample('11000001001000000000000000000000', 'binary')">-10.0 → Decimal</button>
+                        <button class="preset-btn" onclick="loadConverterExample('0', 'decimal')">Nula → IEEE</button>
+                    </div>
+                </div>
+                
+                <div id="converter-results"></div>
             </section>
 
             <!-- Coming Soon sekce -->
@@ -2031,6 +2071,339 @@
                 return html;
             }
 
+        // IEEE 754 Converter functionality
+function loadConverterExample(input, type) {
+    document.getElementById('converter-input').value = input;
+    document.getElementById('converter-type').value = type;
+    convertIEEE754();
+}
+
+function decimalToIEEE754Detailed(num) {
+    if (num === 0) {
+        return {
+            sign: '0',
+            exponent: '00000000',
+            mantissa: '00000000000000000000000',
+            steps: ['Speciální případ: nula má všechny bity nastavené na 0'],
+            isSpecial: true,
+            value: 0
+        };
+    }
+    
+    let steps = [];
+    let sign = num < 0 ? '1' : '0';
+    let absNum = Math.abs(num);
+    
+    steps.push(`1. Určení znaménka: ${num} ${num < 0 ? '< 0' : '≥ 0'} → S = ${sign}`);
+    
+    // Převod na binární
+    let intPart = Math.floor(absNum);
+    let fracPart = absNum - intPart;
+    
+    let intBinary = intPart.toString(2);
+    let fracBinary = '';
+    
+    steps.push(`2. Absolutní hodnota: |${num}| = ${absNum}`);
+    steps.push(`3. Celá část: ${intPart} = ${intBinary}₂`);
+    
+    // Převod zlomkové části
+    let fracSteps = [];
+    for (let i = 0; i < 23 && fracPart > 0; i++) {
+        fracPart *= 2;
+        if (fracPart >= 1) {
+            fracBinary += '1';
+            fracPart -= 1;
+            fracSteps.push(`${(fracPart + 1).toFixed(6)} × 2 = ${(2 * (fracPart + 1)).toFixed(6)} → 1`);
+        } else {
+            fracBinary += '0';
+            fracSteps.push(`${fracPart.toFixed(6)} × 2 = ${(2 * fracPart).toFixed(6)} → 0`);
+        }
+    }
+    
+    if (fracSteps.length > 0) {
+        steps.push(`4. Zlomková část: 0.${(absNum - intPart).toString().substring(2)}`);
+        steps = steps.concat(fracSteps);
+        steps.push(`   Výsledek: 0.${fracBinary}`);
+    }
+    
+    let fullBinary = intBinary + '.' + fracBinary;
+    steps.push(`5. Úplný binární zápis: ${fullBinary}`);
+    
+    // Normalizace
+    let decimalPos = fullBinary.indexOf('.');
+    let firstOnePos = fullBinary.indexOf('1');
+    
+    if (firstOnePos === -1) {
+        // Nula
+        return {
+            sign: '0',
+            exponent: '00000000',
+            mantissa: '00000000000000000000000',
+            steps: steps.concat(['Speciální případ: nula']),
+            isSpecial: true,
+            value: 0
+        };
+    }
+    
+    let exponentValue;
+    let normalizedMantissa;
+    
+    if (firstOnePos < decimalPos) {
+        // Číslo ≥ 1
+        exponentValue = decimalPos - firstOnePos - 1;
+        normalizedMantissa = fullBinary.substring(firstOnePos + 1).replace('.', '');
+        steps.push(`6. Normalizace: 1.${normalizedMantissa} × 2^${exponentValue}`);
+    } else {
+        // Číslo < 1
+        exponentValue = -(firstOnePos - decimalPos);
+        normalizedMantissa = fullBinary.substring(firstOnePos + 1);
+        steps.push(`6. Normalizace: 1.${normalizedMantissa} × 2^${exponentValue}`);
+    }
+    
+    // Bias
+    let biasedExponent = exponentValue + 127;
+    let exponentBinary = biasedExponent.toString(2).padStart(8, '0');
+    
+    steps.push(`7. Bias exponent: ${exponentValue} + 127 = ${biasedExponent} = ${exponentBinary}₂`);
+    
+    // Mantissa
+    let mantissaBinary = normalizedMantissa.padEnd(23, '0').substring(0, 23);
+    steps.push(`8. Mantissa (23 bitů): ${mantissaBinary}`);
+    
+    return {
+        sign: sign,
+        exponent: exponentBinary,
+        mantissa: mantissaBinary,
+        steps: steps,
+        biasedExponent: biasedExponent,
+        exponentValue: exponentValue,
+        normalizedMantissa: normalizedMantissa
+    };
+}
+
+function ieee754ToDecimalDetailed(binaryStr) {
+    if (binaryStr.length !== 32) {
+        throw new Error('IEEE 754 musí mít přesně 32 bitů');
+    }
+    
+    let steps = [];
+    let sign = binaryStr[0];
+    let exponent = binaryStr.substring(1, 9);
+    let mantissa = binaryStr.substring(9);
+    
+    steps.push(`1. Rozklad IEEE 754:`);
+    steps.push(`   Znaménko (S): ${sign}`);
+    steps.push(`   Exponent (E): ${exponent}`);
+    steps.push(`   Mantissa (M): ${mantissa}`);
+    
+    let exponentValue = parseInt(exponent, 2);
+    steps.push(`2. Exponent v desítkové: ${exponent}₂ = ${exponentValue}₁₀`);
+    
+    // Speciální případy
+    if (exponentValue === 0) {
+        if (parseInt(mantissa, 2) === 0) {
+            steps.push(`3. Speciální případ: exponent = 0, mantissa = 0 → ${sign === '1' ? '-' : '+'}0`);
+            return {
+                value: sign === '1' ? -0 : 0,
+                steps: steps,
+                isSpecial: true
+            };
+        } else {
+            steps.push(`3. Denormalizované číslo (subnormal)`);
+            let mantissaValue = parseInt(mantissa, 2) / Math.pow(2, 23);
+            let result = Math.pow(-1, parseInt(sign)) * mantissaValue * Math.pow(2, -126);
+            steps.push(`4. Hodnota: (-1)^${sign} × 0.${mantissa} × 2^(-126) = ${result}`);
+            return {
+                value: result,
+                steps: steps,
+                isSubnormal: true
+            };
+        }
+    }
+    
+    if (exponentValue === 255) {
+        if (parseInt(mantissa, 2) === 0) {
+            steps.push(`3. Speciální případ: ±∞`);
+            return {
+                value: sign === '1' ? -Infinity : Infinity,
+                steps: steps,
+                isSpecial: true
+            };
+        } else {
+            steps.push(`3. Speciální případ: NaN (Not a Number)`);
+            return {
+                value: NaN,
+                steps: steps,
+                isSpecial: true
+            };
+        }
+    }
+    
+    // Normální číslo
+    let realExponent = exponentValue - 127;
+    steps.push(`3. Skutečný exponent: ${exponentValue} - 127 = ${realExponent}`);
+    
+    let mantissaValue = 1 + parseInt(mantissa, 2) / Math.pow(2, 23);
+    steps.push(`4. Mantissa s implicitní 1: 1.${mantissa}₂ = ${mantissaValue.toFixed(8)}`);
+    
+    let result = Math.pow(-1, parseInt(sign)) * mantissaValue * Math.pow(2, realExponent);
+    steps.push(`5. Finální výpočet: (-1)^${sign} × ${mantissaValue.toFixed(8)} × 2^${realExponent} = ${result}`);
+    
+    return {
+        value: result,
+        steps: steps,
+        sign: sign,
+        exponent: exponent,
+        mantissa: mantissa,
+        realExponent: realExponent,
+        mantissaValue: mantissaValue
+    };
+}
+
+function convertIEEE754() {
+    try {
+        let input = document.getElementById('converter-input').value.trim();
+        let type = document.getElementById('converter-type').value;
+        
+        if (!input) {
+            throw new Error('Zadejte vstupní hodnotu');
+        }
+        
+        let html = '';
+        
+        if (type === 'decimal') {
+            // Desetinné → IEEE 754
+            let num = parseFloat(input);
+            if (isNaN(num)) {
+                throw new Error('Zadejte platné desetinné číslo');
+            }
+            
+            let result = decimalToIEEE754Detailed(num);
+            let fullBinary = result.sign + result.exponent + result.mantissa;
+            
+            html += `<div class="section">
+                <h2>🔢 Převod ${num} → IEEE 754</h2>
+                
+                <div class="info-box">
+                    <strong>Cíl:</strong> Převést desetinné číslo ${num} na IEEE 754 (32-bit) binární reprezentaci
+                </div>
+                
+                <h3>Krok za krokem:</h3>
+                <div class="calculation-step">`;
+            
+            for (let step of result.steps) {
+                html += `<div style="margin: 5px 0;">${step}</div>`;
+            }
+            
+            html += `</div>
+                
+                <div class="binary-display">
+                    <div style="text-align: center; margin: 20px 0;">
+                        <span class="sign">${result.sign}</span>
+                        <span class="exponent">${result.exponent}</span>
+                        <span class="mantissa">${result.mantissa}</span>
+                    </div>
+                </div>
+                
+                <table class="table">
+                    <tr><th>Část</th><th>Binárně</th><th>Hodnota</th><th>Popis</th></tr>
+                    <tr>
+                        <td><strong>Znaménko</strong></td>
+                        <td class="sign">${result.sign}</td>
+                        <td>${result.sign === '1' ? 'Záporné' : 'Kladné'}</td>
+                        <td>1 bit</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Exponent</strong></td>
+                        <td class="exponent">${result.exponent}</td>
+                        <td>${result.biasedExponent || 0} (bias ${result.exponentValue || 0}+127)</td>
+                        <td>8 bitů</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Mantissa</strong></td>
+                        <td class="mantissa">${result.mantissa}</td>
+                        <td>1.${result.normalizedMantissa || result.mantissa}</td>
+                        <td>23 bitů</td>
+                    </tr>
+                </table>
+                
+                <div class="final-result">
+                    <h3>🎯 Výsledek:</h3>
+                    <div style="font-size: 24px; margin: 15px 0;">IEEE 754: ${fullBinary}</div>
+                    <div>Hexadecimálně: 0x${parseInt(fullBinary, 2).toString(16).toUpperCase().padStart(8, '0')}</div>
+                </div>
+            </div>`;
+            
+        } else {
+            // IEEE 754 → Desetinné
+            if (!/^[01]{32}$/.test(input)) {
+                throw new Error('Zadejte platný 32-bitový binární řetězec (pouze 0 a 1)');
+            }
+            
+            let result = ieee754ToDecimalDetailed(input);
+            
+            html += `<div class="section">
+                <h2>🔢 Převod IEEE 754 → Desetinné</h2>
+                
+                <div class="info-box">
+                    <strong>Cíl:</strong> Převést IEEE 754 binární reprezentaci na desetinné číslo
+                </div>
+                
+                <div class="binary-display">
+                    <div style="text-align: center; margin: 20px 0;">
+                        <span class="sign">${input[0]}</span>
+                        <span class="exponent">${input.substring(1, 9)}</span>
+                        <span class="mantissa">${input.substring(9)}</span>
+                    </div>
+                </div>
+                
+                <h3>Krok za krokem:</h3>
+                <div class="calculation-step">`;
+            
+            for (let step of result.steps) {
+                html += `<div style="margin: 5px 0;">${step}</div>`;
+            }
+            
+            html += `</div>`;
+            
+            if (!result.isSpecial && !result.isSubnormal) {
+                html += `<table class="table">
+                    <tr><th>Část</th><th>Binárně</th><th>Hodnota</th><th>Výpočet</th></tr>
+                    <tr>
+                        <td><strong>Znaménko</strong></td>
+                        <td class="sign">${result.sign}</td>
+                        <td>${result.sign === '1' ? '-1' : '+1'}</td>
+                        <td>(-1)^${result.sign}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Exponent</strong></td>
+                        <td class="exponent">${result.exponent}</td>
+                        <td>2^${result.realExponent}</td>
+                        <td>${parseInt(result.exponent, 2)} - 127 = ${result.realExponent}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Mantissa</strong></td>
+                        <td class="mantissa">${result.mantissa}</td>
+                        <td>${result.mantissaValue.toFixed(8)}</td>
+                        <td>1 + ${parseInt(result.mantissa, 2)}/2^23</td>
+                    </tr>
+                </table>`;
+            }
+            
+            html += `<div class="final-result">
+                <h3>🎯 Výsledek:</h3>
+                <div style="font-size: 24px; margin: 15px 0;">Desetinně: ${result.value}</div>
+                <div>Typ: ${result.isSpecial ? 'Speciální hodnota' : result.isSubnormal ? 'Denormalizované číslo' : 'Normální číslo'}</div>
+            </div>
+        </div>`;
+        }
+        
+        document.getElementById('converter-results').innerHTML = html;
+        
+    } catch (error) {
+        document.getElementById('converter-results').innerHTML = `<div class="error">Chyba: ${error.message}</div>`;
+    }
+}
         // Initialize on load
         window.onload = function() {
             runQuineMcCluskey();
