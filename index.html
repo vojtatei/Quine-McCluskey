@@ -578,6 +578,7 @@
                             <option value="subtract">Odčítání (-)</option>
                             <option value="multiply">Násobení (×)</option>
                             <option value="divide">Dělení (÷)</option>
+                            <option value="non-restoring">Dělení bez restaurace</option>
                         </select>
                         
                         <label for="bin-num2">Číslo B (binárně nebo desetinně):</label>
@@ -591,6 +592,7 @@
                         <button class="preset-btn" onclick="loadBinaryPreset('00110111', '00000101', 'divide')">Dělení: 55 ÷ 5</button>
                         <button class="preset-btn" onclick="loadBinaryPreset('00000100', '00000111', 'multiply')">Násobení: 4 × 7</button>
                         <button class="preset-btn" onclick="loadBinaryPreset('01000100', '01011010', 'add')">Sčítání: 68 + 90</button>
+                        <button class="preset-btn" onclick="loadBinaryPreset('00011110', '00000011', 'non-restoring')">Bez restaurace: 30 ÷ 3</button>
                     </div>
                 </div>
                 
