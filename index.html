@@ -3,15 +3,103 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quine-McCluskey metoda</title>
+    <title>Interaktivní učení informatiky</title>
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            padding: 20px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             color: white;
+        }
+        
+        .navbar {
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            padding: 1rem 2rem;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.3);
+        }
+        
+        .nav-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        
+        .nav-menu {
+            display: flex;
+            list-style: none;
+            gap: 1rem;
+        }
+        
+        .nav-item {
+            position: relative;
+        }
+        
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            border-radius: 25px;
+            color: white;
+            text-decoration: none;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+        }
+        
+        .nav-link:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+        
+        .nav-link.active {
+            background: linear-gradient(45deg, #ff6b6b, #ff8e8e);
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+        }
+        
+        .hamburger {
+            display: none;
+            flex-direction: column;
+            cursor: pointer;
+            padding: 0.5rem;
+        }
+        
+        .hamburger span {
+            width: 25px;
+            height: 3px;
+            background: white;
+            margin: 3px 0;
+            transition: 0.3s;
+        }
+        
+        .main-content {
+            margin-top: 80px;
+            padding: 20px;
+            min-height: calc(100vh - 80px);
         }
         
         .container {
@@ -22,6 +110,20 @@
             padding: 30px;
             backdrop-filter: blur(10px);
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        
+        .topic-section {
+            display: none;
+        }
+        
+        .topic-section.active {
+            display: block;
+            animation: fadeIn 0.5s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
         }
         
         h1 {
@@ -53,14 +155,21 @@
             color: #fff;
         }
         
-        input[type="text"] {
+        input[type="text"], input[type="number"] {
             padding: 10px 15px;
             border: none;
             border-radius: 8px;
             background: rgba(255, 255, 255, 0.9);
             color: #333;
             font-size: 16px;
+        }
+        
+        input[type="text"] {
             width: 300px;
+        }
+        
+        input[type="number"] {
+            width: 120px;
         }
         
         button {
@@ -94,7 +203,7 @@
             font-size: 14px;
         }
         
-        .main-content {
+        .main-content-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 30px;
@@ -102,7 +211,7 @@
         }
         
         @media (max-width: 1200px) {
-            .main-content {
+            .main-content-grid {
                 grid-template-columns: 1fr;
             }
         }
@@ -122,33 +231,120 @@
             padding-bottom: 10px;
         }
         
-        .iteration-table {
+        .full-width {
+            grid-column: 1 / -1;
+        }
+        
+        /* Responsive Navigation */
+        @media (max-width: 768px) {
+            .hamburger {
+                display: flex;
+            }
+            
+            .nav-menu {
+                position: fixed;
+                left: -100%;
+                top: 70px;
+                flex-direction: column;
+                background: rgba(0, 0, 0, 0.95);
+                width: 100%;
+                text-align: center;
+                transition: 0.3s;
+                backdrop-filter: blur(10px);
+                padding: 2rem 0;
+            }
+            
+            .nav-menu.active {
+                left: 0;
+            }
+            
+            .nav-link {
+                margin: 0.5rem 1rem;
+            }
+        }
+        
+        /* Společné styly pro obě sekce */
+        .iteration-table, .table {
             width: 100%;
             border-collapse: collapse;
             margin-bottom: 20px;
             font-size: 14px;
         }
         
-        .iteration-table th,
-        .iteration-table td {
+        .iteration-table th, .iteration-table td,
+        .table th, .table td {
             border: 1px solid #ddd;
             padding: 8px 12px;
             text-align: center;
         }
         
-        .iteration-table th {
+        .iteration-table th, .table th {
             background: #3498db;
             color: white;
             font-weight: bold;
         }
         
-        .iteration-table tr:nth-child(even) {
+        .iteration-table tr:nth-child(even),
+        .table tr:nth-child(even) {
             background: #f8f9fa;
         }
         
         .combined-term {
             background: #e8f5e8 !important;
             font-weight: bold;
+        }
+        
+        .binary-display {
+            font-family: 'Courier New', monospace;
+            font-size: 18px;
+            font-weight: bold;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            border-left: 4px solid #3498db;
+            letter-spacing: 2px;
+        }
+        
+        .sign { color: #e74c3c; }
+        .exponent { color: #f39c12; }
+        .mantissa { color: #27ae60; }
+        
+        .final-result {
+            background: linear-gradient(45deg, #27ae60, #2ecc71);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+            margin-top: 20px;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+        }
+        
+        .step-explanation, .calculation-step {
+            background: #e8f4f8;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .info-box {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+        
+        .error {
+            background: #e74c3c;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
         }
         
         .kmap-container {
@@ -187,15 +383,6 @@
             color: #7f8c8d;
         }
         
-        .kmap .grouped {
-            border: 3px solid #f39c12;
-            background: #fff3cd !important;
-        }
-        
-        .petrick-section {
-            grid-column: 1 / -1;
-        }
-        
         .coverage-table {
             width: 100%;
             border-collapse: collapse;
@@ -221,90 +408,250 @@
             font-weight: bold;
         }
         
-        .final-result {
-            background: linear-gradient(45deg, #27ae60, #2ecc71);
-            color: white;
-            padding: 20px;
-            border-radius: 12px;
+        .welcome-section {
             text-align: center;
-            font-size: 18px;
-            font-weight: bold;
-            margin-top: 20px;
-            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+            padding: 3rem 0;
         }
         
-        .step-explanation {
-            background: #e8f4f8;
-            border-left: 4px solid #3498db;
-            padding: 15px;
-            margin: 15px 0;
-            border-radius: 0 8px 8px 0;
+        .welcome-section h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
         }
         
-        .binary-display {
-            font-family: 'Courier New', monospace;
-            font-weight: bold;
-            letter-spacing: 1px;
+        .welcome-section p {
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+            opacity: 0.9;
         }
         
-        .highlight {
-            background: #ffeb3b;
-            padding: 2px 4px;
-            border-radius: 3px;
-            color: #333;
+        .topic-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 3rem;
         }
         
-        .error {
-            background: #e74c3c;
-            color: white;
-            padding: 15px;
-            border-radius: 8px;
-            margin: 10px 0;
+        .topic-card {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 2rem;
+            border-radius: 15px;
+            text-align: center;
+            transition: transform 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .topic-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .topic-card h3 {
+            margin-bottom: 1rem;
+            color: #fff;
+        }
+        
+        .topic-card p {
+            opacity: 0.8;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>🔧 Quine-McCluskey metoda a Petrickova funkce</h1>
-        
-        <div class="input-section">
-            <div class="controls">
-                <label for="minterms">Mintermy (čárkou oddělené):</label>
-                <input type="text" id="minterms" value="2,4,6,8,9,10,12,13,15" placeholder="např. 2,4,6,8,9,10,12,13,15">
-                <button onclick="runQuineMcCluskey()">🚀 Spustit minimalizaci</button>
-            </div>
-            <div class="preset-buttons">
-                <button class="preset-btn" onclick="loadPreset('2,4,6,8,9,10,12,13,15')">Příklad z obrázku</button>
-                <button class="preset-btn" onclick="loadPreset('0,1,2,5,8,9,10')">Příklad 2</button>
-                <button class="preset-btn" onclick="loadPreset('4,5,6,8,9,10,13')">Příklad 3</button>
-                <button class="preset-btn" onclick="loadPreset('1,3,7,11,15')">Příklad 4</button>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">📚 CS Learning Platform</div>
+            <ul class="nav-menu" id="nav-menu">
+                <li class="nav-item">
+                    <a href="#" class="nav-link active" onclick="showSection('welcome')">
+                        🏠 Úvod
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" onclick="showSection('quine-mccluskey')">
+                        🔧 Quine-McCluskey
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" onclick="showSection('ieee754')">
+                        🔢 IEEE 754
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" onclick="showSection('coming-soon')">
+                        ⭐ Další témata
+                    </a>
+                </li>
+            </ul>
+            <div class="hamburger" onclick="toggleMenu()">
+                <span></span>
+                <span></span>
+                <span></span>
             </div>
         </div>
-        
-        <div class="main-content">
-            <div class="section">
-                <h2>📊 Quine-McCluskey iterace</h2>
-                <div id="iterations"></div>
-            </div>
-            
-            <div class="section">
-                <h2>🗺️ Karnaughova mapa</h2>
-                <div id="kmap"></div>
-            </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="container">
+            <!-- Úvodní sekce -->
+            <section id="welcome" class="topic-section active">
+                <div class="welcome-section">
+                    <h1>🎓 Interaktivní učení informatiky</h1>
+                    <p>Prozkoumej složité koncepty informatiky pomocí interaktivních nástrojů a vizualizací</p>
+                    
+                    <div class="topic-grid">
+                        <div class="topic-card" onclick="showSection('quine-mccluskey')">
+                            <h3>🔧 Quine-McCluskey metoda</h3>
+                            <p>Minimalizace logických funkcí krok za krokem. Naučte se, jak algoritmus systematicky redukuje Boolean výrazy na nejjednodušší formu.</p>
+                        </div>
+                        
+                        <div class="topic-card" onclick="showSection('ieee754')">
+                            <h3>🔢 IEEE 754 Floating Point</h3>
+                            <p>Pochopte, jak počítače ukládají a počítají s desetinnými čísly. Sledujte proces sčítání floating point čísel bit po bitu.</p>
+                        </div>
+                        
+                        <div class="topic-card" onclick="showSection('coming-soon')">
+                            <h3>⭐ Připravujeme...</h3>
+                            <p>Další témata jako algoritmy řazení, datové struktury, nebo síťové protokoly budou brzy dostupné!</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Quine-McCluskey sekce -->
+            <section id="quine-mccluskey" class="topic-section">
+                <h1>🔧 Quine-McCluskey metoda a Petrickova funkce</h1>
+                
+                <div class="input-section">
+                    <div class="controls">
+                        <label for="minterms">Mintermy (čárkou oddělené):</label>
+                        <input type="text" id="minterms" value="2,4,6,8,9,10,12,13,15" placeholder="např. 2,4,6,8,9,10,12,13,15">
+                        <button onclick="runQuineMcCluskey()">🚀 Spustit minimalizaci</button>
+                    </div>
+                    <div class="preset-buttons">
+                        <button class="preset-btn" onclick="loadQMPreset('2,4,6,8,9,10,12,13,15')">Příklad z obrázku</button>
+                        <button class="preset-btn" onclick="loadQMPreset('0,1,2,5,8,9,10')">Příklad 2</button>
+                        <button class="preset-btn" onclick="loadQMPreset('4,5,6,8,9,10,13')">Příklad 3</button>
+                        <button class="preset-btn" onclick="loadQMPreset('1,3,7,11,15')">Příklad 4</button>
+                    </div>
+                </div>
+                
+                <div class="main-content-grid">
+                    <div class="section">
+                        <h2>📊 Quine-McCluskey iterace</h2>
+                        <div id="qm-iterations"></div>
+                    </div>
+                    
+                    <div class="section">
+                        <h2>🗺️ Karnaughova mapa</h2>
+                        <div id="qm-kmap"></div>
+                    </div>
+                </div>
+                
+                <div class="section full-width">
+                    <h2>🧮 Petrickova funkce a pokrytí</h2>
+                    <div id="qm-petrick"></div>
+                    <div id="qm-coverage"></div>
+                    <div id="qm-final-result"></div>
+                </div>
+            </section>
+
+            <!-- IEEE 754 sekce -->
+            <section id="ieee754" class="topic-section">
+                <h1>🔢 IEEE 754 Sčítání čísel (32-bit Float)</h1>
+                
+                <div class="input-section">
+                    <div class="controls">
+                        <label for="ieee-num1">Číslo A:</label>
+                        <input type="number" id="ieee-num1" value="3.75" step="any">
+                        
+                        <label for="ieee-num2">Číslo B:</label>
+                        <input type="number" id="ieee-num2" value="1.25" step="any">
+                        
+                        <button onclick="calculateIEEE754Addition()">🧮 Spočítat sčítání</button>
+                    </div>
+                    
+                    <div class="preset-buttons">
+                        <button class="preset-btn" onclick="loadIEEEExample(3.75, 1.25)">Příklad 1: 3.75 + 1.25</button>
+                        <button class="preset-btn" onclick="loadIEEEExample(5.5, -2.25)">Příklad 2: 5.5 + (-2.25)</button>
+                        <button class="preset-btn" onclick="loadIEEEExample(0.125, 0.375)">Příklad 3: 0.125 + 0.375</button>
+                        <button class="preset-btn" onclick="loadIEEEExample(7.0, 0.5)">Příklad 4: 7.0 + 0.5</button>
+                    </div>
+                </div>
+                
+                <div id="ieee-results"></div>
+            </section>
+
+            <!-- Coming Soon sekce -->
+            <section id="coming-soon" class="topic-section">
+                <div class="welcome-section">
+                    <h1>⭐ Další témata v přípravě</h1>
+                    <p>Připravujeme další interaktivní nástroje pro učení informatiky</p>
+                    
+                    <div class="topic-grid">
+                        <div class="topic-card">
+                            <h3>🗂️ Datové struktury</h3>
+                            <p>Vizualizace stromů, hashmap, linked listů a dalších datových struktur s interaktivními operacemi.</p>
+                        </div>
+                        
+                        <div class="topic-card">
+                            <h3>🔀 Algoritmy řazení</h3>
+                            <p>Sledujte algoritmy jako Quick Sort, Merge Sort, Bubble Sort krok za krokem s animacemi.</p>
+                        </div>
+                        
+                        <div class="topic-card">
+                            <h3>🌐 Síťové protokoly</h3>
+                            <p>Pochopte TCP/IP, HTTP, DNS a další protokoly pomocí interaktivních diagramů.</p>
+                        </div>
+                        
+                        <div class="topic-card">
+                            <h3>🔐 Kryptografie</h3>
+                            <p>Prozkoumejte šifrovací algoritmy, hash funkce a digitální podpisy.</p>
+                        </div>
+                        
+                        <div class="topic-card">
+                            <h3>🤖 Automatové teorie</h3>
+                            <p>Konečné automaty, regulární výrazy a formální jazyky s interaktivními simulátory.</p>
+                        </div>
+                        
+                        <div class="topic-card">
+                            <h3>💾 Operační systémy</h3>
+                            <p>Plánování procesů, správa paměti a filesystémy s praktickými ukázkami.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
         </div>
-        
-        <div class="section petrick-section">
-            <h2>🧮 Petrickova funkce a pokrytí</h2>
-            <div id="petrick"></div>
-            <div id="coverage"></div>
-            <div id="final-result"></div>
-        </div>
-    </div>
+    </main>
 
     <script>
+        // Navigation functionality
+        function showSection(sectionId) {
+            // Hide all sections
+            document.querySelectorAll('.topic-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            
+            // Remove active class from all nav links
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.classList.remove('active');
+            });
+            
+            // Show selected section
+            document.getElementById(sectionId).classList.add('active');
+            
+            // Add active class to corresponding nav link
+            event.target.classList.add('active');
+            
+            // Close mobile menu if open
+            document.getElementById('nav-menu').classList.remove('active');
+        }
+
+        function toggleMenu() {
+            document.getElementById('nav-menu').classList.toggle('active');
+        }
+
+        // Quine-McCluskey functionality
         class QuineMcCluskey {
             constructor() {
-                this.variables = 4; // W, X, Y, Z
+                this.variables = 4;
                 this.varNames = ['W', 'X', 'Y', 'Z'];
             }
 
@@ -345,7 +692,6 @@
                 let iterations = [];
                 let currentTerms = new Map();
                 
-                // Inicializace - převod na binární
                 for (let minterm of minterms) {
                     let binary = this.toBinary(minterm, this.variables);
                     currentTerms.set(binary, [minterm]);
@@ -358,7 +704,6 @@
                     let used = new Set();
                     let groups = new Map();
                     
-                    // Seskupení podle počtu jedniček
                     for (let [term, origins] of currentTerms) {
                         let ones = this.countOnes(term);
                         if (!groups.has(ones)) {
@@ -367,7 +712,6 @@
                         groups.get(ones).push({term, origins});
                     }
                     
-                    // Připravení dat pro zobrazení
                     let iterationData = {
                         iteration: iterationNum,
                         groups: [],
@@ -384,7 +728,6 @@
                         });
                     }
                     
-                    // Kombinování termů
                     let sortedGroups = Array.from(groups.keys()).sort((a, b) => a - b);
                     for (let i = 0; i < sortedGroups.length - 1; i++) {
                         let group1 = groups.get(sortedGroups[i]);
@@ -415,7 +758,6 @@
                     
                     if (nextTerms.size === 0) break;
                     
-                    // Přidání nepoužitých termů
                     for (let [term, origins] of currentTerms) {
                         if (!used.has(term)) {
                             nextTerms.set(term, origins);
@@ -426,7 +768,6 @@
                     iterationNum++;
                 }
                 
-                // Prime implicants jsou všechny nepoužité termy z poslední iterace
                 let primeImplicants = [];
                 for (let [term, origins] of currentTerms) {
                     primeImplicants.push({term, origins});
@@ -437,8 +778,6 @@
 
             generateKMap(minterms) {
                 let kmap = Array(4).fill().map(() => Array(4).fill(0));
-                
-                // Gray code mapping for 4 variables
                 let grayCode = ['00', '01', '11', '10'];
                 
                 for (let minterm of minterms) {
@@ -456,9 +795,7 @@
             }
 
             petrickFunction(primeImplicants, minterms) {
-                // Vytvoření tabulky pokrytí
                 let coverageTable = [];
-                let mintermSet = new Set(minterms);
                 
                 for (let minterm of minterms) {
                     let coverage = [];
@@ -469,11 +806,9 @@
                     coverageTable.push({minterm, coverage});
                 }
                 
-                // Hledání minimálního pokrytí (zjednodušená verze)
                 let essentialPIs = new Set();
                 let coveredMinterms = new Set();
                 
-                // Hledání esenciálních prime implicantů
                 for (let row of coverageTable) {
                     let coveringPIs = [];
                     for (let i = 0; i < row.coverage.length; i++) {
@@ -483,208 +818,24 @@
                     }
                     if (coveringPIs.length === 1) {
                         essentialPIs.add(coveringPIs[0]);
-                        coveredMinterms.add(row.minterm);
                     }
                 }
                 
-                // Jednoduché heuristické pokrytí zbylých termů
-                let solution = Array.from(essentialPIs);
-                for (let minterm of minterms) {
-                    if (!coveredMinterms.has(minterm)) {
-                        for (let i = 0; i < primeImplicants.length; i++) {
-                            if (primeImplicants[i].origins.includes(minterm) && !solution.includes(i)) {
-                                solution.push(i);
-                                break;
-                            }
-                        }
+                for (let piIndex of essentialPIs) {
+                    for (let minterm of primeImplicants[piIndex].origins) {
+                        coveredMinterms.add(minterm);
                     }
                 }
                 
-                return {coverageTable, solution};
-            }
-
-            termToAlgebraic(term) {
-                let result = '';
-                for (let i = 0; i < term.length; i++) {
-                    if (term[i] !== '-') {
-                        if (result !== '') result += '';
-                        if (term[i] === '0') {
-                            result += this.varNames[i] + "'";
-                        } else {
-                            result += this.varNames[i];
-                        }
-                    }
-                }
-                return result || '1';
-            }
-        }
-
-        const qm = new QuineMcCluskey();
-
-        function loadPreset(minterms) {
-            document.getElementById('minterms').value = minterms;
-            runQuineMcCluskey();
-        }
-
-        function runQuineMcCluskey() {
-            try {
-                let input = document.getElementById('minterms').value;
-                let minterms = input.split(',').map(x => parseInt(x.trim())).filter(x => !isNaN(x));
+                let uncoveredMinterms = minterms.filter(m => !coveredMinterms.has(m));
                 
-                if (minterms.length === 0) {
-                    throw new Error('Zadejte platné mintermy');
+                if (uncoveredMinterms.length === 0) {
+                    return {
+                        coverageTable, 
+                        solution: Array.from(essentialPIs),
+                        essentialPIs: Array.from(essentialPIs),
+                        petrickExpression: "Všechny mintermy pokryté esenciálními PI"
+                    };
                 }
                 
-                // Kontrola rozsahu
-                let maxMinterm = Math.max(...minterms);
-                if (maxMinterm >= 16) {
-                    throw new Error('Mintermy musí být v rozsahu 0-15 pro 4 proměnné');
-                }
-                
-                let result = qm.quineMcCluskey(minterms);
-                let petrickResult = qm.petrickFunction(result.primeImplicants, minterms);
-                
-                displayIterations(result.iterations);
-                displayKMap(qm.generateKMap(minterms), minterms);
-                displayPetrick(result.primeImplicants, petrickResult, minterms);
-                
-            } catch (error) {
-                document.getElementById('iterations').innerHTML = `<div class="error">Chyba: ${error.message}</div>`;
-                document.getElementById('kmap').innerHTML = '';
-                document.getElementById('petrick').innerHTML = '';
-                document.getElementById('coverage').innerHTML = '';
-                document.getElementById('final-result').innerHTML = '';
-            }
-        }
-
-        function displayIterations(iterations) {
-            let html = '';
-            
-            for (let iter of iterations) {
-                html += `<h3>Iterace ${iter.iteration}</h3>`;
-                
-                if (iter.groups.length > 0) {
-                    html += '<table class="iteration-table">';
-                    html += '<tr><th>Počet jedniček</th><th>Binární</th><th>Mintermy</th></tr>';
-                    
-                    for (let group of iter.groups) {
-                        for (let term of group.terms) {
-                            html += `<tr>`;
-                            html += `<td>${group.ones}</td>`;
-                            html += `<td class="binary-display">${term.binary}</td>`;
-                            html += `<td>${term.origins.join(', ')}</td>`;
-                            html += `</tr>`;
-                        }
-                    }
-                    html += '</table>';
-                }
-                
-                if (iter.combinations.length > 0) {
-                    html += '<div class="step-explanation">Kombinace:</div>';
-                    html += '<table class="iteration-table">';
-                    html += '<tr><th>Term 1</th><th>Term 2</th><th>Kombinovaný</th><th>Mintermy</th></tr>';
-                    
-                    for (let combo of iter.combinations) {
-                        html += `<tr class="combined-term">`;
-                        html += `<td class="binary-display">${combo.term1}</td>`;
-                        html += `<td class="binary-display">${combo.term2}</td>`;
-                        html += `<td class="binary-display">${combo.result}</td>`;
-                        html += `<td>${combo.origins.join(', ')}</td>`;
-                        html += `</tr>`;
-                    }
-                    html += '</table>';
-                } else {
-                    html += '<div class="step-explanation">Žádné další kombinace možné - konec</div>';
-                }
-            }
-            
-            document.getElementById('iterations').innerHTML = html;
-        }
-
-        function displayKMap(kmap, minterms) {
-            let html = '<div class="kmap-container">';
-            html += '<table class="kmap">';
-            
-            // Header
-            html += '<tr><th>WX\\YZ</th><th>00</th><th>01</th><th>11</th><th>10</th></tr>';
-            
-            let grayRows = ['00', '01', '11', '10'];
-            let grayRowLabels = ['WX̄', 'WX̄', 'WX', 'W̄X'];
-            
-            for (let i = 0; i < 4; i++) {
-                html += `<tr><th>${grayRows[i]}</th>`;
-                for (let j = 0; j < 4; j++) {
-                    let value = kmap[i][j];
-                    let className = value === 1 ? 'one' : 'zero';
-                    html += `<td class="${className}">${value}</td>`;
-                }
-                html += '</tr>';
-            }
-            
-            html += '</table>';
-            html += '</div>';
-            
-            html += '<div class="step-explanation">Červené buňky = mintermy, šedé = nepoužité</div>';
-            
-            document.getElementById('kmap').innerHTML = html;
-        }
-
-        function displayPetrick(primeImplicants, petrickResult, minterms) {
-            let html = '<h3>Prime implicanty:</h3>';
-            html += '<table class="iteration-table">';
-            html += '<tr><th>Index</th><th>Binární</th><th>Algebraicky</th><th>Pokrývá mintermy</th></tr>';
-            
-            for (let i = 0; i < primeImplicants.length; i++) {
-                let pi = primeImplicants[i];
-                html += `<tr>`;
-                html += `<td>P${i}</td>`;
-                html += `<td class="binary-display">${pi.term}</td>`;
-                html += `<td>${qm.termToAlgebraic(pi.term)}</td>`;
-                html += `<td>${pi.origins.join(', ')}</td>`;
-                html += `</tr>`;
-            }
-            html += '</table>';
-            
-            document.getElementById('petrick').innerHTML = html;
-            
-            // Coverage table
-            html = '<h3>Tabulka pokrytí:</h3>';
-            html += '<table class="coverage-table">';
-            html += '<tr><th>Minterm</th>';
-            for (let i = 0; i < primeImplicants.length; i++) {
-                html += `<th>P${i}</th>`;
-            }
-            html += '</tr>';
-            
-            for (let row of petrickResult.coverageTable) {
-                html += `<tr><td><strong>${row.minterm}</strong></td>`;
-                for (let i = 0; i < row.coverage.length; i++) {
-                    let className = row.coverage[i] === 1 ? 'covered' : '';
-                    html += `<td class="${className}">${row.coverage[i] === 1 ? '✓' : ''}</td>`;
-                }
-                html += '</tr>';
-            }
-            html += '</table>';
-            
-            document.getElementById('coverage').innerHTML = html;
-            
-            // Final result
-            let selectedPIs = petrickResult.solution.map(i => qm.termToAlgebraic(primeImplicants[i].term));
-            let finalExpression = selectedPIs.join(' + ');
-            
-            html = `<div class="final-result">`;
-            html += `<h3>🎯 Minimální výraz:</h3>`;
-            html += `<div style="font-size: 24px; margin: 15px 0;">F = ${finalExpression}</div>`;
-            html += `<div>Použité prime implicanty: ${petrickResult.solution.map(i => `P${i}`).join(', ')}</div>`;
-            html += `</div>`;
-            
-            document.getElementById('final-result').innerHTML = html;
-        }
-
-        // Načti příklad při startu
-        window.onload = function() {
-            runQuineMcCluskey();
-        };
-    </script>
-</body>
-</html>
+                let bestSolution = this.findOptimalC
