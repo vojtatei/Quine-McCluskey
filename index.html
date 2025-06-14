@@ -452,6 +452,26 @@
         .topic-card p {
             opacity: 0.8;
         }
+
+        .formula-display {
+            background: #f8f9fa;
+            border: 2px solid #3498db;
+            padding: 20px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 16px;
+            text-align: center;
+            margin: 15px 0;
+            color: #2c3e50;
+        }
+        
+        .step-highlight {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 0 5px 5px 0;
+        }
     </style>
 </head>
 <body>
@@ -482,6 +502,11 @@
                 <li class="nav-item">
                     <a href="#" class="nav-link" onclick="showSection('ieee754-converter')">
                         🔄 IEEE 754 Převodník
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" onclick="showSection('ieee754-multiply')">
+                        ✖️ IEEE 754 Násobení
                     </a>
                 </li>
                 <li class="nav-item">
@@ -520,6 +545,10 @@
                         <div class="topic-card" onclick="showSection('ieee754-converter')">
                             <h3>🔄 IEEE 754 Převodník</h3>
                             <p>Převádějte mezi desetinnými čísly a IEEE 754 reprezentací s detailním postupem a vysvětlením každého kroku.</p>
+                        </div>
+                        <div class="topic-card" onclick="showSection('ieee754-multiply')">
+                            <h3>✖️ IEEE 754 Násobení</h3>
+                            <p>Naučte se, jak počítače násobí desetinná čísla ve floating point aritmetice s detailním postupem každého kroku.</p>
                         </div>
                         
                         <div class="topic-card" onclick="showSection('binary-arithmetic')">
@@ -664,6 +693,31 @@
                 
                 <div id="converter-results"></div>
             </section>
+
+            <section id="ieee754-multiply" class="topic-section">
+            <h1>✖️ IEEE 754 Násobení čísel (32-bit Float)</h1>
+            
+            <div class="input-section">
+                <div class="controls">
+                    <label for="ieee-mult-num1">Číslo X:</label>
+                    <input type="number" id="ieee-mult-num1" value="-0.3" step="any">
+                    
+                    <label for="ieee-mult-num2">Číslo Y:</label>
+                    <input type="number" id="ieee-mult-num2" value="500.25" step="any">
+                    
+                    <button onclick="calculateIEEE754Multiplication()">🧮 Spočítat násobení</button>
+                </div>
+                
+                <div class="preset-buttons">
+                    <button class="preset-btn" onclick="loadIEEEMultExample(-0.3, 500.25)">Příklad z obrázku: -0.3 × 500.25</button>
+                    <button class="preset-btn" onclick="loadIEEEMultExample(3.5, 2.25)">Příklad 2: 3.5 × 2.25</button>
+                    <button class="preset-btn" onclick="loadIEEEMultExample(1.5, -4.0)">Příklad 3: 1.5 × (-4.0)</button>
+                    <button class="preset-btn" onclick="loadIEEEMultExample(0.25, 0.125)">Příklad 4: 0.25 × 0.125</button>
+                </div>
+            </div>
+            
+            <div id="ieee-mult-results"></div>
+        </section>
 
             <!-- Coming Soon sekce -->
             <section id="coming-soon" class="topic-section">
@@ -2404,11 +2458,308 @@ function convertIEEE754() {
         document.getElementById('converter-results').innerHTML = `<div class="error">Chyba: ${error.message}</div>`;
     }
 }
+
+// IEEE 754 Multiplication functionality
+        function loadIEEEMultExample(a, b) {
+            document.getElementById('ieee-mult-num1').value = a;
+            document.getElementById('ieee-mult-num2').value = b;
+            calculateIEEE754Multiplication();
+        }
+
+        function multiplyMantissasBinary(m1, m2) {
+            // Převod mantis na desetinná čísla s implicitní 1
+            const mantissa1 = 1 + parseInt(m1, 2) / Math.pow(2, 23);
+            const mantissa2 = 1 + parseInt(m2, 2) / Math.pow(2, 23);
+            
+            const product = mantissa1 * mantissa2;
+            
+            // Převod produktu zpět na binární reprezentaci
+            let intPart = Math.floor(product);
+            let fracPart = product - intPart;
+            
+            let intBinary = intPart.toString(2);
+            let fracBinary = '';
+            
+            // Převod zlomkové části na binární
+            for (let i = 0; i < 24 && fracPart > 0; i++) {
+                fracPart *= 2;
+                if (fracPart >= 1) {
+                    fracBinary += '1';
+                    fracPart -= 1;
+                } else {
+                    fracBinary += '0';
+                }
+            }
+            
+            return {
+                mantissa1: mantissa1,
+                mantissa2: mantissa2,
+                product: product,
+                intBinary: intBinary,
+                fracBinary: fracBinary,
+                fullBinary: intBinary + '.' + fracBinary,
+                mantissa1Str: `1.${m1}`,
+                mantissa2Str: `1.${m2}`
+            };
+        }
+
+        function normalizeMultiplicationProduct(productValue, exponentSum) {
+            let intPart = Math.floor(productValue);
+            let fracPart = productValue - intPart;
+            
+            // Převod na binární
+            let intBinary = intPart.toString(2);
+            let fracBinary = '';
+            
+            for (let i = 0; i < 24 && fracPart > 0; i++) {
+                fracPart *= 2;
+                if (fracPart >= 1) {
+                    fracBinary += '1';
+                    fracPart -= 1;
+                } else {
+                    fracBinary += '0';
+                }
+            }
+            
+            let fullBinary = intBinary + '.' + fracBinary;
+            let firstOnePos = fullBinary.indexOf('1');
+            let decimalPos = fullBinary.indexOf('.');
+            
+            let newExponent = exponentSum;
+            let mantissa = '';
+            let shift = 0;
+            
+            if (firstOnePos < decimalPos) {
+                // Číslo >= 2, posun doprava
+                shift = decimalPos - firstOnePos - 1;
+                newExponent += shift;
+                mantissa = fullBinary.substring(firstOnePos + 1).replace('.', '');
+            } else {
+                // Číslo < 2
+                mantissa = fullBinary.substring(firstOnePos + 1);
+                if (firstOnePos > decimalPos) {
+                    shift = -(firstOnePos - decimalPos);
+                    newExponent += shift;
+                }
+            }
+            
+            // Ořízni na 23 bitů
+            mantissa = mantissa.padEnd(23, '0').substring(0, 23);
+            
+            return {
+                newExponent: newExponent,
+                mantissa: mantissa,
+                exponentBin: (newExponent + 127).toString(2).padStart(8, '0'),
+                shift: shift,
+                fullBinary: fullBinary,
+                biasedExponent: newExponent + 127
+            };
+        }
+
+        function calculateIEEE754Multiplication() {
+            try {
+                const num1 = parseFloat(document.getElementById('ieee-mult-num1').value);
+                const num2 = parseFloat(document.getElementById('ieee-mult-num2').value);
+                
+                if (isNaN(num1) || isNaN(num2)) {
+                    throw new Error('Zadejte platná čísla');
+                }
+                
+                const ieee1 = floatToIEEE754(num1);
+                const ieee2 = floatToIEEE754(num2);
+                
+                let html = '';
+                
+                // Zobrazení vstupních čísel podle vzoru z obrázku
+                html += `<div class="section">
+                    <h2>Vstupní čísla v IEEE 754 formátu</h2>
+                    <div class="info-box">
+                        <strong>Vzorec IEEE 754 násobení:</strong><br>
+                        X · Y = (X<sub>s</sub> · Y<sub>s</sub>) · 2<sup>X<sub>E</sub> + Y<sub>E</sub></sup><br>
+                        kde X<sub>s</sub>, Y<sub>s</sub> jsou mantisy a X<sub>E</sub>, Y<sub>E</sub> jsou exponenty
+                    </div>
+                    
+                    <div class="formula-display">
+                        X = ${num1} = ${ieee1.binary.substring(9, 32)}<sub>2</sub> = 1.${ieee1.mantissa}<sub>2</sub> × 2<sup>${ieee1.biasedExponent}</sup>
+                    </div>
+                    
+                    <div class="binary-display">
+                        X: <span class="sign">${ieee1.sign}</span> | <span class="exponent">${ieee1.exponent}</span> | <span class="mantissa">${ieee1.mantissa}</span>
+                    </div>
+                    
+                    <div class="formula-display">
+                        Y = ${num2} = ${ieee2.binary.substring(9, 32)}<sub>2</sub> = 1.${ieee2.mantissa}<sub>2</sub> × 2<sup>${ieee2.biasedExponent}</sup>
+                    </div>
+                    
+                    <div class="binary-display">
+                        Y: <span class="sign">${ieee2.sign}</span> | <span class="exponent">${ieee2.exponent}</span> | <span class="mantissa">${ieee2.mantissa}</span>
+                    </div>
+                    
+                    <table class="table">
+                        <tr><th>Číslo</th><th>Znaménko</th><th>Exponent (biased)</th><th>Exponent (skutečný)</th><th>Mantissa</th></tr>
+                        <tr>
+                            <td><strong>X = ${num1}</strong></td>
+                            <td>${ieee1.sign}</td>
+                            <td>${ieee1.exponentValue}</td>
+                            <td>X<sub>E</sub> = ${ieee1.biasedExponent}</td>
+                            <td>X<sub>s</sub> = 1.${ieee1.mantissa}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Y = ${num2}</strong></td>
+                            <td>${ieee2.sign}</td>
+                            <td>${ieee2.exponentValue}</td>
+                            <td>Y<sub>E</sub> = ${ieee2.biasedExponent}</td>
+                            <td>Y<sub>s</sub> = 1.${ieee2.mantissa}</td>
+                        </tr>
+                    </table>
+                </div>`;
+                
+                // Krok 1: XOR znamének
+                const resultSign = ieee1.sign !== ieee2.sign ? '1' : '0';
+                html += `<div class="section">
+                    <h2>Krok 1: Určení znaménka výsledku (XOR)</h2>
+                    <div class="calculation-step">
+                        <strong>XOR znamének:</strong><br>
+                        ${ieee1.sign} ⊕ ${ieee2.sign} = ${resultSign}<br><br>
+                        
+                        <div class="step-highlight">
+                            Výsledné znaménko: <strong>${resultSign}</strong> 
+                            (${resultSign === '1' ? 'záporné' : 'kladné'})
+                        </div>
+                    </div>
+                </div>`;
+                
+                // Krok 2: Sčítání exponentů
+                const exponentSum = ieee1.biasedExponent + ieee2.biasedExponent;
+                html += `<div class="section">
+                    <h2>Krok 2: Sčítání exponentů</h2>
+                    <div class="calculation-step">
+                        <strong>Sčítání skutečných exponentů:</strong><br>
+                        X<sub>E</sub> + Y<sub>E</sub> = ${ieee1.biasedExponent} + ${ieee2.biasedExponent} = ${exponentSum}<br><br>
+                        
+                        <div class="step-highlight">
+                            Součet exponentů: <strong>${exponentSum}</strong>
+                        </div>
+                        
+                        <div class="info-box">
+                            <strong>Poznámka:</strong> Bias (127) se automaticky přičte později při konverzi zpět na IEEE 754 formát.
+                        </div>
+                    </div>
+                </div>`;
+                
+                // Krok 3: Násobení mantis
+                const mantissaResult = multiplyMantissasBinary(ieee1.mantissa, ieee2.mantissa);
+                html += `<div class="section">
+                    <h2>Krok 3: Násobení mantis (s implicitní 1)</h2>
+                    <div class="calculation-step">
+                        <strong>Mantisy s implicitní jedničkou:</strong><br>
+                        X<sub>s</sub> = ${mantissaResult.mantissa1Str} = ${mantissaResult.mantissa1.toFixed(8)}<br>
+                        Y<sub>s</sub> = ${mantissaResult.mantissa2Str} = ${mantissaResult.mantissa2.toFixed(8)}<br><br>
+                        
+                        <strong>Násobení mantis:</strong><br>
+                        X<sub>s</sub> × Y<sub>s</sub> = ${mantissaResult.mantissa1.toFixed(8)} × ${mantissaResult.mantissa2.toFixed(8)} = ${mantissaResult.product.toFixed(8)}<br><br>
+                        
+                        <strong>Výsledek v binárním formátu:</strong><br>
+                        ${mantissaResult.fullBinary}<sub>2</sub><br><br>
+                        
+                        <div class="step-highlight">
+                            Součin mantis: <strong>${mantissaResult.product.toFixed(8)}</strong>
+                        </div>
+                    </div>
+                </div>`;
+                
+                // Krok 4: Normalizace
+                const normalized = normalizeMultiplicationProduct(mantissaResult.product, exponentSum);
+                html += `<div class="section">
+                    <h2>Krok 4: Normalizace výsledku</h2>
+                    <div class="calculation-step">
+                        <strong>Původní součin:</strong> ${mantissaResult.product.toFixed(8)} = ${normalized.fullBinary}<sub>2</sub><br><br>
+                        
+                        <strong>Normalizace:</strong><br>`;
+                
+                if (normalized.shift > 0) {
+                    html += `Posun doprava o ${normalized.shift} pozic → exponent +${normalized.shift}<br>`;
+                } else if (normalized.shift < 0) {
+                    html += `Posun doleva o ${Math.abs(normalized.shift)} pozic → exponent ${normalized.shift}<br>`;
+                } else {
+                    html += `Žádný posun potřebný<br>`;
+                }
+                
+                html += `Nový exponent: ${exponentSum} ${normalized.shift !== 0 ? `+ (${normalized.shift})` : ''} = ${normalized.newExponent}<br>
+                        Biased exponent: ${normalized.newExponent} + 127 = ${normalized.biasedExponent}<br>
+                        Normalizovaná mantissa: ${normalized.mantissa}<br><br>
+                        
+                        <div class="step-highlight">
+                            Finální exponent: <strong>${normalized.newExponent}</strong><br>
+                            Finální mantissa: <strong>${normalized.mantissa}</strong>
+                        </div>
+                    </div>
+                </div>`;
+                
+                // Krok 5: Sestavení výsledku
+                const resultBinary = ieee754ToBinary(resultSign, normalized.exponentBin, normalized.mantissa);
+                const actualResult = num1 * num2;
+                const calculatedResult = binaryToFloat(resultBinary);
+                
+                html += `<div class="section">
+                    <h2>Krok 5: Sestavení IEEE 754 výsledku</h2>
+                    
+                    <div class="formula-display">
+                        X × Y = (X<sub>s</sub> × Y<sub>s</sub>) × 2<sup>X<sub>E</sub> + Y<sub>E</sub> + posun</sup>
+                    </div>
+                    
+                    <div class="binary-display">
+                        Výsledek: <span class="sign">${resultSign}</span> | <span class="exponent">${normalized.exponentBin}</span> | <span class="mantissa">${normalized.mantissa}</span>
+                    </div>
+                    
+                    <table class="table">
+                        <tr><th>Část</th><th>Binárně</th><th>Hodnota</th><th>Popis</th></tr>
+                        <tr>
+                            <td><strong>Znaménko</strong></td>
+                            <td class="sign">${resultSign}</td>
+                            <td>${resultSign === '1' ? 'Záporné (-1)' : 'Kladné (+1)'}</td>
+                            <td>1 bit</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Exponent</strong></td>
+                            <td class="exponent">${normalized.exponentBin}</td>
+                            <td>${normalized.biasedExponent} (${normalized.newExponent}+127)</td>
+                            <td>8 bitů</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Mantissa</strong></td>
+                            <td class="mantissa">${normalized.mantissa}</td>
+                            <td>1.${normalized.mantissa}</td>
+                            <td>23 bitů</td>
+                        </tr>
+                    </table>
+                    
+                    <div class="final-result">
+                        <h3>🎯 Výsledek IEEE 754 násobení:</h3>
+                        <div style="font-size: 24px; margin: 15px 0;">
+                            ${num1} × ${num2} = ${actualResult}
+                        </div>
+                        <div>IEEE 754 výpočet: ${calculatedResult.toFixed(8)}</div>
+                        <div>Binární reprezentace: ${resultBinary}</div>
+                        <div>Hexadecimálně: 0x${parseInt(resultBinary, 2).toString(16).toUpperCase().padStart(8, '0')}</div>
+                        <div style="margin-top: 10px;">
+                            Přesnost: ${Math.abs(actualResult - calculatedResult) < 1e-6 ? '✅ Velmi přesný' : '⚠️ Drobné zaokrouhlení'}
+                        </div>
+                    </div>
+                </div>`;
+                
+                document.getElementById('ieee-mult-results').innerHTML = html;
+                
+            } catch (error) {
+                document.getElementById('ieee-mult-results').innerHTML = `<div class="error">Chyba: ${error.message}</div>`;
+            }
+        }
         // Initialize on load
         window.onload = function() {
             runQuineMcCluskey();
             calculateIEEE754Addition();
             calculateBinaryArithmetic();
+            calculateIEEE754Multiplication();
         };
     </script>
 </body>
